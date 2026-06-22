@@ -629,7 +629,7 @@ export default function TimeCapsule() {
                   </div>
 
                   {/* Then vs Now (if not on latest era) */}
-                  {activeEraIdx < placeData.eras.length - 1 && (
+                  {activeEraIdx < placeData.eras.length - 1 && currentEra && (
                     <div className="bg-[#0d1f33]/80 border border-white/8 rounded-2xl p-5">
                       <div className="text-sm font-bold text-white/50 uppercase tracking-widest mb-4">Then vs Now</div>
                       <div className="grid grid-cols-2 gap-4">

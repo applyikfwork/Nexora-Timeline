@@ -4,10 +4,14 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   useGetPlaceLiveData,
+  getGetPlaceLiveDataQueryKey,
   useReadPlaceTimeline,
   useGetPlacePersonality,
+  getGetPlacePersonalityQueryKey,
   useGetPredictions,
+  getGetPredictionsQueryKey,
   useComparePlaces,
+  getComparePlacesQueryKey,
   useSavePlace,
   useListSavedPlaces,
   useSendChatMessage,
@@ -184,17 +188,18 @@ export default function MapDashboard() {
   const placeId = selectedCity?.id || "";
 
   const { data: liveData, isLoading: loadingLive } = useGetPlaceLiveData(placeId, {
-    query: { enabled: !!placeId }
+    query: { enabled: !!placeId, queryKey: getGetPlaceLiveDataQueryKey(placeId) }
   });
   const { data: personality, isLoading: loadingPersonality } = useGetPlacePersonality(placeId, {
-    query: { enabled: !!placeId }
+    query: { enabled: !!placeId, queryKey: getGetPlacePersonalityQueryKey(placeId) }
   });
   const { data: predictions } = useGetPredictions(placeId, {
-    query: { enabled: !!placeId && viewMode === "future" }
+    query: { enabled: !!placeId && viewMode === "future", queryKey: getGetPredictionsQueryKey(placeId) }
   });
+  const compareParams = { placeA: selectedCity?.id || "", placeB: compareCity?.id || "" };
   const { data: comparison } = useComparePlaces(
-    { city1: selectedCity?.id || "", city2: compareCity?.id || "" },
-    { query: { enabled: !!(selectedCity && compareCity && showCompare) } }
+    compareParams,
+    { query: { enabled: !!(selectedCity && compareCity && showCompare), queryKey: getComparePlacesQueryKey(compareParams) } }
   );
   const { data: savedPlaces } = useListSavedPlaces();
   const saveMutation = useSavePlace();
