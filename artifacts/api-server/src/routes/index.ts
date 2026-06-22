@@ -15,6 +15,7 @@ import cityRouter from "./city";
 import reporterRouter from "./reporter";
 import portfolioRouter from "./portfolio";
 import alertsRouter from "./alerts";
+import crowdRouter from "./crowd";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(cityRouter);
 router.use(reporterRouter);
 router.use(portfolioRouter);
 router.use(alertsRouter);
+router.use(crowdRouter);
 
 export default router;
