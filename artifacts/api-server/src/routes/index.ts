@@ -10,6 +10,7 @@ import viralRouter from "./viral";
 import plannerRouter from "./planner";
 import capsuleRouter from "./capsule";
 import forecastRouter from "./forecast";
+import eventsRouter from "./events";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(viralRouter);
 router.use(plannerRouter);
 router.use(capsuleRouter);
 router.use(forecastRouter);
+router.use(eventsRouter);
 
 export default router;
