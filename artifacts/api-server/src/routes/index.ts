@@ -14,6 +14,7 @@ import eventsRouter from "./events";
 import cityRouter from "./city";
 import reporterRouter from "./reporter";
 import portfolioRouter from "./portfolio";
+import alertsRouter from "./alerts";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(eventsRouter);
 router.use(cityRouter);
 router.use(reporterRouter);
 router.use(portfolioRouter);
+router.use(alertsRouter);
 
 export default router;
