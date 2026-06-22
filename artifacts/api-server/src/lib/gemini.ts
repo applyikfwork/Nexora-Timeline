@@ -14,7 +14,7 @@ export async function generateText(prompt: string): Promise<string> {
     return "AI service unavailable. Please set GEMINI_API_KEY.";
   }
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
     return result.response.text();
   } catch (err) {
@@ -26,7 +26,7 @@ export async function generateText(prompt: string): Promise<string> {
 export async function generateJson<T>(prompt: string, fallback: T): Promise<T> {
   if (!genAI) return fallback;
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(
       `${prompt}\n\nRespond ONLY with valid JSON. No markdown, no code blocks, just raw JSON.`
     );
