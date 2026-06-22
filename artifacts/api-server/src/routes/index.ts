@@ -12,6 +12,7 @@ import capsuleRouter from "./capsule";
 import forecastRouter from "./forecast";
 import eventsRouter from "./events";
 import cityRouter from "./city";
+import reporterRouter from "./reporter";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(capsuleRouter);
 router.use(forecastRouter);
 router.use(eventsRouter);
 router.use(cityRouter);
+router.use(reporterRouter);
 
 export default router;
