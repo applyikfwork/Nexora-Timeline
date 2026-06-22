@@ -13,6 +13,7 @@ import forecastRouter from "./forecast";
 import eventsRouter from "./events";
 import cityRouter from "./city";
 import reporterRouter from "./reporter";
+import portfolioRouter from "./portfolio";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(forecastRouter);
 router.use(eventsRouter);
 router.use(cityRouter);
 router.use(reporterRouter);
+router.use(portfolioRouter);
 
 export default router;
