@@ -16,6 +16,20 @@ import SavedPlaces from "@/pages/SavedPlaces";
 import Chat from "@/pages/Chat";
 import Analytics from "@/pages/Analytics";
 
+import ViralHub from "@/pages/ViralHub";
+import TravelPlanner from "@/pages/TravelPlanner";
+import TimeCapsule from "@/pages/TimeCapsule";
+import WorldPulse from "@/pages/WorldPulse";
+import HistoricalWhatIf from "@/pages/HistoricalWhatIf";
+import NeighborhoodDNA from "@/pages/NeighborhoodDNA";
+import EventRadar from "@/pages/EventRadar";
+import CityCompatibility from "@/pages/CityCompatibility";
+import CityPortfolio from "@/pages/CityPortfolio";
+import SmartAlerts from "@/pages/SmartAlerts";
+import CrowdForecast from "@/pages/CrowdForecast";
+import CityReporter from "@/pages/CityReporter";
+import ExplorerHub from "@/pages/ExplorerHub";
+
 function Router() {
   return (
     <Layout>
@@ -28,6 +42,19 @@ function Router() {
         <Route path="/saved" component={SavedPlaces} />
         <Route path="/chat" component={Chat} />
         <Route path="/analytics" component={Analytics} />
+        <Route path="/viral" component={ViralHub} />
+        <Route path="/planner" component={TravelPlanner} />
+        <Route path="/capsule" component={TimeCapsule} />
+        <Route path="/pulse" component={WorldPulse} />
+        <Route path="/history" component={HistoricalWhatIf} />
+        <Route path="/neighborhoods" component={NeighborhoodDNA} />
+        <Route path="/events" component={EventRadar} />
+        <Route path="/compatibility" component={CityCompatibility} />
+        <Route path="/portfolio" component={CityPortfolio} />
+        <Route path="/alerts" component={SmartAlerts} />
+        <Route path="/forecast" component={CrowdForecast} />
+        <Route path="/reporter" component={CityReporter} />
+        <Route path="/explorer" component={ExplorerHub} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
