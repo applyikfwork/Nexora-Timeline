@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/nexora run build",
+  "buildCommand": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server run build && pnpm --filter @workspace/nexora run build",
   "outputDirectory": "artifacts/nexora/dist/public",
   "framework": null,
   "installCommand": "pnpm install",
