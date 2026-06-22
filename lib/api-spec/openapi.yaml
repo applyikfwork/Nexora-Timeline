@@ -3,13 +3,26 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Nexora AI Location Intelligence Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: places
+    description: Place search and management
+  - name: timelines
+    description: AI-generated timelines for places
+  - name: insights
+    description: AI insights and predictions
+  - name: saved
+    description: Saved places
+  - name: chat
+    description: AI conversational assistant
+  - name: analytics
+    description: Platform analytics
+
 paths:
   /healthz:
     get:
@@ -24,6 +37,360 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /places/search:
+    get:
+      operationId: searchPlaces
+      tags: [places]
+      summary: Search for places
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: List of matching places
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Place"
+
+  /places/{placeId}:
+    get:
+      operationId: getPlace
+      tags: [places]
+      summary: Get place details
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Place details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceDetail"
+        "404":
+          description: Not found
+
+  /places/{placeId}/personality:
+    get:
+      operationId: getPlacePersonality
+      tags: [places]
+      summary: Get AI-generated place personality and area DNA
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Place personality profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlacePersonality"
+
+  /places/{placeId}/live-data:
+    get:
+      operationId: getPlaceLiveData
+      tags: [places]
+      summary: Get live conditions for a place
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Live conditions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveData"
+
+  /timelines/{placeId}:
+    get:
+      operationId: readPlaceTimeline
+      tags: [timelines]
+      summary: Get AI-generated timeline for a place
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          schema:
+            type: string
+            description: ISO date string, defaults to today
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [today, yesterday, last_week, last_month, custom, festival, holiday]
+            default: today
+      responses:
+        "200":
+          description: Timeline entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Timeline"
+
+  /timelines/{placeId}/replay:
+    get:
+      operationId: readTimelineReplay
+      tags: [timelines]
+      summary: Get time-sliced data for timeline replay animation
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hourly replay data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReplaySlice"
+
+  /insights/{placeId}/predictions:
+    get:
+      operationId: getPredictions
+      tags: [insights]
+      summary: Get AI predictions for the next 30 minutes
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Predictions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Predictions"
+
+  /insights/{placeId}/story:
+    get:
+      operationId: loadAiStory
+      tags: [insights]
+      summary: Get AI narrative story about place activity
+      parameters:
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: timeOfDay
+          in: query
+          schema:
+            type: string
+            enum: [morning, afternoon, evening, night]
+      responses:
+        "200":
+          description: AI narrative
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiStory"
+
+  /insights/compare:
+    get:
+      operationId: comparePlaces
+      tags: [insights]
+      summary: Compare two places or two time periods
+      parameters:
+        - name: placeA
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: placeB
+          in: query
+          schema:
+            type: string
+        - name: dateA
+          in: query
+          schema:
+            type: string
+        - name: dateB
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Comparison result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceComparison"
+
+  /insights/dashboard-summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [insights]
+      summary: Get platform dashboard summary stats
+      responses:
+        "200":
+          description: Summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /saved-places:
+    get:
+      operationId: listSavedPlaces
+      tags: [saved]
+      summary: List saved places for current session
+      responses:
+        "200":
+          description: Saved places list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SavedPlace"
+    post:
+      operationId: savePlace
+      tags: [saved]
+      summary: Save a place
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavedPlaceInput"
+      responses:
+        "201":
+          description: Saved place created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedPlace"
+
+  /saved-places/{id}:
+    delete:
+      operationId: deleteSavedPlace
+      tags: [saved]
+      summary: Remove a saved place
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /chat/message:
+    post:
+      operationId: sendChatMessage
+      tags: [chat]
+      summary: Send a message to AI assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMessageInput"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+
+  /chat/history:
+    get:
+      operationId: getChatHistory
+      tags: [chat]
+      summary: Get recent chat history for a session
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Chat messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessage"
+
+  /analytics/stats:
+    get:
+      operationId: getAnalyticsStats
+      tags: [analytics]
+      summary: Get admin analytics stats
+      responses:
+        "200":
+          description: Analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsStats"
+
+  /analytics/popular-cities:
+    get:
+      operationId: getPopularCities
+      tags: [analytics]
+      summary: Get most searched/viewed cities
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Popular cities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PopularCity"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +401,296 @@ components:
       required:
         - status
 
+    Place:
+      type: object
+      required: [id, name, country, lat, lng]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        country: { type: string }
+        state: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+        placeType: { type: string }
+        population: { type: ["integer", "null"] }
+        timezone: { type: ["string", "null"] }
+
+    PlaceDetail:
+      type: object
+      required: [id, name, country, lat, lng, description]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        country: { type: string }
+        state: { type: ["string", "null"] }
+        lat: { type: number }
+        lng: { type: number }
+        placeType: { type: string }
+        population: { type: ["integer", "null"] }
+        timezone: { type: ["string", "null"] }
+        description: { type: string }
+        tags: { type: array, items: { type: string } }
+        createdAt: { type: string }
+
+    PlacePersonality:
+      type: object
+      required: [placeId, placeName, ratings, areaDna, summary]
+      properties:
+        placeId: { type: string }
+        placeName: { type: string }
+        ratings:
+          type: object
+          properties:
+            energy: { type: number }
+            tourism: { type: number }
+            shopping: { type: number }
+            nightlife: { type: number }
+            education: { type: number }
+            business: { type: number }
+        areaDna:
+          type: object
+          properties:
+            food: { type: number }
+            business: { type: number }
+            culture: { type: number }
+            shopping: { type: number }
+            nature: { type: number }
+            entertainment: { type: number }
+            education: { type: number }
+            healthcare: { type: number }
+        summary: { type: string }
+        generatedAt: { type: string }
+
+    LiveData:
+      type: object
+      required: [placeId, timestamp]
+      properties:
+        placeId: { type: string }
+        timestamp: { type: string }
+        weather:
+          type: object
+          properties:
+            condition: { type: string }
+            temperature: { type: number }
+            humidity: { type: number }
+            description: { type: string }
+        traffic:
+          type: object
+          properties:
+            level: { type: string, enum: [low, moderate, high, severe] }
+            score: { type: number }
+        crowd:
+          type: object
+          properties:
+            level: { type: string, enum: [quiet, moderate, busy, packed] }
+            score: { type: number }
+        noise:
+          type: object
+          properties:
+            level: { type: string, enum: [quiet, moderate, loud, very_loud] }
+        safety:
+          type: object
+          properties:
+            score: { type: number }
+            level: { type: string }
+        mood:
+          type: object
+          properties:
+            sentiment: { type: string }
+            score: { type: number }
+
+    Timeline:
+      type: object
+      required: [placeId, date, entries, narrative]
+      properties:
+        placeId: { type: string }
+        date: { type: string }
+        mode: { type: string }
+        narrative: { type: string }
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimelineEntry"
+
+    TimelineEntry:
+      type: object
+      required: [time, title, description, category]
+      properties:
+        time: { type: string }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string, enum: [traffic, crowd, restaurant, transit, event, weather, safety, business] }
+        intensity: { type: string, enum: [low, medium, high] }
+        icon: { type: string }
+
+    ReplaySlice:
+      type: object
+      required: [hour, label]
+      properties:
+        hour: { type: integer }
+        label: { type: string }
+        traffic: { type: number }
+        crowd: { type: number }
+        noise: { type: number }
+        activity: { type: number }
+        description: { type: string }
+
+    Predictions:
+      type: object
+      required: [placeId, generatedAt, confidence, items]
+      properties:
+        placeId: { type: string }
+        generatedAt: { type: string }
+        confidence: { type: number }
+        timeframe: { type: string }
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PredictionItem"
+
+    PredictionItem:
+      type: object
+      required: [metric, current, predicted, trend, description]
+      properties:
+        metric: { type: string }
+        current: { type: string }
+        predicted: { type: string }
+        trend: { type: string, enum: [increasing, decreasing, stable] }
+        changePercent: { type: ["number", "null"] }
+        description: { type: string }
+
+    AiStory:
+      type: object
+      required: [placeId, story, generatedAt]
+      properties:
+        placeId: { type: string }
+        story: { type: string }
+        highlights:
+          type: array
+          items: { type: string }
+        timeOfDay: { type: string }
+        generatedAt: { type: string }
+
+    PlaceComparison:
+      type: object
+      required: [placeA, summary]
+      properties:
+        placeA:
+          type: object
+          properties:
+            name: { type: string }
+            metrics:
+              type: object
+              additionalProperties: { type: number }
+        placeB:
+          type: object
+          nullable: true
+          properties:
+            name: { type: string }
+            metrics:
+              type: object
+              additionalProperties: { type: number }
+        dateA: { type: ["string", "null"] }
+        dateB: { type: ["string", "null"] }
+        summary: { type: string }
+        winner: { type: ["string", "null"] }
+
+    DashboardSummary:
+      type: object
+      required: [totalSearches, aiInsightsGenerated, activePlaces, topCity]
+      properties:
+        totalSearches: { type: integer }
+        aiInsightsGenerated: { type: integer }
+        activePlaces: { type: integer }
+        topCity: { type: string }
+        savedPlacesCount: { type: integer }
+        chatMessagesCount: { type: integer }
+        recentActivity:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              description: { type: string }
+              timestamp: { type: string }
+
+    SavedPlace:
+      type: object
+      required: [id, placeId, placeName, lat, lng, createdAt]
+      properties:
+        id: { type: integer }
+        placeId: { type: string }
+        placeName: { type: string }
+        country: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        notes: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    SavedPlaceInput:
+      type: object
+      required: [placeId, placeName, lat, lng]
+      properties:
+        placeId: { type: string }
+        placeName: { type: string }
+        country: { type: string }
+        lat: { type: number }
+        lng: { type: number }
+        notes: { type: string }
+
+    ChatMessageInput:
+      type: object
+      required: [message, sessionId]
+      properties:
+        message: { type: string }
+        sessionId: { type: string }
+        placeContext: { type: ["string", "null"] }
+        placeId: { type: ["string", "null"] }
+
+    ChatResponse:
+      type: object
+      required: [reply, sessionId, messageId]
+      properties:
+        reply: { type: string }
+        sessionId: { type: string }
+        messageId: { type: integer }
+        relatedPlaces:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              placeId: { type: string }
+
+    ChatMessage:
+      type: object
+      required: [id, sessionId, role, content, createdAt]
+      properties:
+        id: { type: integer }
+        sessionId: { type: string }
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string }
+        placeContext: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    AnalyticsStats:
+      type: object
+      required: [totalUsers, totalAiRequests, totalApiCalls, totalStorageUsed]
+      properties:
+        totalUsers: { type: integer }
+        totalAiRequests: { type: integer }
+        totalApiCalls: { type: integer }
+        totalStorageUsed: { type: string }
+        dailyActiveUsers: { type: integer }
+        avgResponseTimeMs: { type: number }
+        topFeature: { type: string }
+
+    PopularCity:
+      type: object
+      required: [name, country, searchCount, rank]
+      properties:
+        name: { type: string }
+        country: { type: string }
+        searchCount: { type: integer }
+        rank: { type: integer }
+        trending: { type: boolean }
