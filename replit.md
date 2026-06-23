@@ -1,10 +1,11 @@
-# [Project name]
+# Nexora
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+India-first location intelligence platform — AI-powered city insights, metro deep dives, real estate intelligence, and location analysis for every place on Earth.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/nexora run dev` — run the frontend (port from $PORT)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -14,32 +15,63 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
+- Frontend: React + Vite + Tailwind v4 + Framer Motion + Wouter
+- API: Express 5 + Clerk Auth middleware
 - DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
+- Auth: Clerk (Replit-managed, appId: app_3FWmdHt3cg8GjfVXxjU1agjpzMV)
+- AI: Gemini 2.0 Flash via GEMINI_API_KEY
+- Validation: Zod (v4), drizzle-zod
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/nexora/` — React/Vite frontend
+- `artifacts/api-server/` — Express 5 API server
+- `lib/db/src/schema/` — Drizzle ORM schema (source of truth for DB)
+- `lib/api-spec/` — OpenAPI spec (source of truth for API contracts)
+- `lib/api-client-react/` — Generated React Query hooks
+- `lib/api-zod/` — Generated Zod schemas
+- `artifacts/nexora/src/pages/` — All page components
+- `artifacts/nexora/src/components/layout/` — Sidebar, AppLayout, MobileBottomNav
+- `artifacts/api-server/src/routes/` — All API route handlers
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **India-first** — All ranking data, festival calendars, and business intelligence defaults to Indian cities
+- **24h AI Cache** — Factual AI responses cached for 1440 minutes in PostgreSQL to conserve Gemini quota
+- **Admin gate** — Admin panel at `/admin` is email-gated client-side to `xyzapplywork@gmail.com` via Clerk `useUser()`
+- **Clerk proxy** — `clerkProxyMiddleware` on `/api/__clerk` so the same Express server handles both API and Clerk OAuth callbacks
+- **Session-based persistence** — Non-authenticated users identified by `nexora_session_id` in localStorage
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Home** — Hero with live city ticker, search bar, 18 AI feature highlights
+- **India Intelligence** (`/india`) — Metro deep dives, festival calendar, monsoon data, state business climate, Tier 2 rising cities
+- **City Comparison** (`/compare`) — AI side-by-side scoring of any two cities on 6 dimensions
+- **City Leaderboard** (`/leaderboard`) — Top 10 India + Global city rankings with live AI refresh
+- **Business Intelligence** (`/business`) — Market entry analysis, rental yield tables by city
+- **Admin Panel** (`/admin`) — System stats, cache management, feature flags, settings (admin-only)
+- **Explore Map** (`/map`) — Interactive map with heatlayers and place search
+- **AI Assistant** (`/chat`) — Conversational AI with location context
+- **Time Machine** — Historical city vibe analysis
+- **Viral Hub** — City vibe cards and battle-mode comparisons
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Admin email: `xyzapplywork@gmail.com`
+- India-first positioning — prioritize Indian cities in defaults and examples
+- Dark purple/violet theme throughout
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Cache TTL for AI routes: factual routes = 1440min (24h), time-sensitive routes (crowd, alerts) = 60min
+- Clerk `publishableKey` must use `publishableKeyFromHost()` from `@clerk/react/internal` — never the raw env var
+- `tailwindcss({ optimize: false })` in vite.config.ts is required for Clerk themes to work in prod builds
+- `@layer theme, base, clerk, components, utilities;` must precede `@import 'tailwindcss'` in index.css
+- `pnpm --filter @workspace/nexora run typecheck` not `build` for verifying artifact (build needs workflow PORT/BASE_PATH)
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- See the `clerk-auth` skill for auth setup details

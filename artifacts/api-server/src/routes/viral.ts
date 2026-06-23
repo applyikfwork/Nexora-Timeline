@@ -67,7 +67,7 @@ router.get("/viral/vibe-card", async (req, res): Promise<void> => {
 
   const data = await generateJson(prompt, fallback);
   const result = { placeId, placeName: name, generatedAt: new Date().toISOString(), ...data };
-  await setCached(cacheKey, "vibe-card", placeId, result, 60);
+  await setCached(cacheKey, "vibe-card", placeId, result, 1440);
   res.json(result);
 });
 
@@ -112,7 +112,7 @@ router.post("/viral/city-battle", async (req, res): Promise<void> => {
 
   const data = await generateJson(prompt, fallback);
   const result = { ...data, generatedAt: new Date().toISOString() };
-  await setCached(cacheKey, "battle", placeA, result, 120);
+  await setCached(cacheKey, "battle", placeA, result, 1440);
   res.json(result);
 });
 

@@ -124,7 +124,7 @@ router.get("/insights/:placeId/story", async (req, res): Promise<void> => {
     generatedAt: new Date().toISOString(),
   };
 
-  await setCached(cacheKey, "story", placeId, result, 60);
+  await setCached(cacheKey, "story", placeId, result, 1440);
   res.json(result);
 });
 
@@ -165,7 +165,7 @@ router.get("/insights/compare", async (req, res): Promise<void> => {
     winner: placeB ? nameB : null,
   };
 
-  await setCached(cacheKey, "compare", placeA, result, 30);
+  await setCached(cacheKey, "compare", placeA, result, 1440);
   res.json(result);
 });
 

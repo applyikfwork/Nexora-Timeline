@@ -1150,7 +1150,7 @@ export default function Insights() {
                           <div className="font-semibold text-sm">{s.location}</div>
                           <div className="text-xs text-white/40 truncate">{s.summary}</div>
                         </div>
-                        <div className="text-xs text-white/20 flex-shrink-0">{s.savedAt}</div>
+                        <div className="text-xs text-white/20 flex-shrink-0">{String(s.savedAt)}</div>
                       </div>
                     ))}
                   </div>

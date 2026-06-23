@@ -82,7 +82,7 @@ Return JSON:
 
   const data = await generateJson(prompt, fallback);
   const result = { ...data, generatedAt: new Date().toISOString() };
-  await setCached(cacheKey, "itinerary", city, result, 240);
+  await setCached(cacheKey, "itinerary", city, result, 1440);
   res.json(result);
 });
 
@@ -228,7 +228,7 @@ Return JSON:
 
   const data = await generateJson(prompt, fallback);
   const result = { placeId, placeName: name, lifestyle, ...data, generatedAt: new Date().toISOString() };
-  await setCached(cacheKey, "compatibility", placeId, result, 720);
+  await setCached(cacheKey, "compatibility", placeId, result, 1440);
   res.json(result);
 });
 
@@ -265,7 +265,7 @@ Return JSON:
 
   const data = await generateJson(prompt, fallback);
   const result = { placeId, placeName: name, reportedAt: new Date().toISOString(), ...data };
-  await setCached(cacheKey, "reporter", placeId, result, 60);
+  await setCached(cacheKey, "reporter", placeId, result, 1440);
   res.json(result);
 });
 

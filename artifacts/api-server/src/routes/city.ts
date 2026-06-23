@@ -241,7 +241,7 @@ Return ONLY valid JSON:
 }`;
 
   const data = await generateJson(prompt, matchFallback(cityName, lifestyle));
-  await setCached(cacheKey, "city-match", null, data, 720);
+  await setCached(cacheKey, "city-match", null, data, 1440);
   res.json(data);
 });
 
@@ -316,7 +316,7 @@ Return ONLY valid JSON:
   };
 
   const data = await generateJson(prompt, fallback);
-  await setCached(cacheKey, "city-compare", null, data, 720);
+  await setCached(cacheKey, "city-compare", null, data, 1440);
   res.json(data);
 });
 

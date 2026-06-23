@@ -389,7 +389,7 @@ Return JSON: {
     fallback
   );
 
-  await setCached(cacheKey, "event-plan", cityId, data, 120);
+  await setCached(cacheKey, "event-plan", cityId, data, 1440);
   res.json(data);
 });
 

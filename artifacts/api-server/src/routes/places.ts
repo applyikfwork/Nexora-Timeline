@@ -128,7 +128,7 @@ router.get("/places/:placeId/personality", async (req, res): Promise<void> => {
     generatedAt: new Date().toISOString(),
   };
 
-  await setCached(cacheKey, "personality", placeId, result, 120);
+  await setCached(cacheKey, "personality", placeId, result, 1440);
   res.json(result);
 });
 

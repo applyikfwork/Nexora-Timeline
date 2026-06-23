@@ -135,7 +135,7 @@ Return ONLY valid JSON (no markdown):
 }`;
 
   const data = await generateJson(prompt, profileFallback(cityName));
-  await setCached(cacheKey, "portfolio-profile", null, data, 90);
+  await setCached(cacheKey, "portfolio-profile", null, data, 1440);
   res.json(data);
 });
 
@@ -185,7 +185,7 @@ Return ONLY valid JSON:
   };
 
   const data = await generateJson(prompt, fallback);
-  await setCached(cacheKey, "portfolio-compare", null, data, 90);
+  await setCached(cacheKey, "portfolio-compare", null, data, 1440);
   res.json(data);
 });
 
@@ -205,7 +205,7 @@ Be specific to this city — mention real landmarks, industries, demographics. W
   ).catch(() => `${cityName} is a dynamic city with a unique blend of heritage and modern growth. Economic activity is healthy across key sectors including trade, services, and tourism. The lifestyle here balances traditional culture with contemporary amenities. Key challenges include infrastructure keeping pace with growth. Looking ahead, ${cityName} is positioned for sustained expansion through the next decade.`);
 
   const data = { cityName, report, generatedAt: new Date().toISOString() };
-  await setCached(cacheKey, "portfolio-report", null, data, 120);
+  await setCached(cacheKey, "portfolio-report", null, data, 1440);
   res.json(data);
 });
 

@@ -70,9 +70,9 @@ router.post("/chat/message", async (req, res): Promise<void> => {
 
     try {
       aiReply = await generateText(`${systemContext}\n\nUser question: ${message}`);
-      /* Store in cache with 4-hour TTL */
+      /* Store in cache with 24-hour TTL */
       if (cacheable) {
-        await setCached(key, "chat", placeId ?? null, aiReply, 240);
+        await setCached(key, "chat", placeId ?? null, aiReply, 1440);
       }
     } catch (err) {
       if (err instanceof RateLimitError) {

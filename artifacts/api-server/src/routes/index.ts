@@ -19,6 +19,7 @@ import reporterRouter from "./reporter";
 import portfolioRouter from "./portfolio";
 import alertsRouter from "./alerts";
 import crowdRouter from "./crowd";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(reporterRouter);
 router.use(portfolioRouter);
 router.use(alertsRouter);
 router.use(crowdRouter);
+router.use(adminRouter);
 
 export default router;

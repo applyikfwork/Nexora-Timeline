@@ -147,7 +147,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
 }`;
 
   const data = await generateJson(prompt, reportFallback(cityName));
-  await setCached(cacheKey, "reporter-report", null, data, 60);
+  await setCached(cacheKey, "reporter-report", null, data, 1440);
   res.json(data);
 });
 
@@ -229,7 +229,7 @@ Return ONLY valid JSON:
   };
 
   const data = await generateJson(prompt, fallback);
-  await setCached(cacheKey, "reporter-compare", null, data, 60);
+  await setCached(cacheKey, "reporter-compare", null, data, 1440);
   res.json(data);
 });
 

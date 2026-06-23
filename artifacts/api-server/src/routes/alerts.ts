@@ -267,7 +267,7 @@ Return ONLY valid JSON:
   };
 
   const data = await generateJson(prompt, fallback);
-  await setCached(cacheKey, "alerts-brief", null, data, 360);
+  await setCached(cacheKey, "alerts-brief", null, data, 1440);
   res.json(data);
 });
 
