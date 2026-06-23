@@ -84,16 +84,12 @@ export function Sidebar() {
       <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} px-3 py-4 border-b border-white/5`}>
         {!collapsed && (
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/40">
-              <Globe className="w-4 h-4 text-primary" />
-            </div>
+            <img src="/favicon.ico" alt="Nexora" className="w-7 h-7 rounded-lg object-cover" />
             <h1 className="text-lg font-black tracking-widest text-primary">NEXORA</h1>
           </div>
         )}
         {collapsed && (
-          <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center border border-primary/40">
-            <Globe className="w-4 h-4 text-primary" />
-          </div>
+          <img src="/favicon.ico" alt="Nexora" className="w-7 h-7 rounded-lg object-cover" />
         )}
         <button
           onClick={() => setCollapsed(c => !c)}
