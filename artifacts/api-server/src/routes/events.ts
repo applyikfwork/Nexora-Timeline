@@ -238,12 +238,97 @@ function getEventsForCity(cityId: string): RadarEvent[] {
     : RADAR_EVENTS.slice(0, 3);
 }
 
+// ── AI Event Generation ───────────────────────────────────────────────────────
+
+type AIEventInput = {
+  name: string; category: string; location: string; activity: number;
+  crowd: "Low" | "Medium" | "High" | "Very High"; startTime: string; endTime: string;
+  peakTime: string; aiTip: string; emoji: string; trending: boolean; tags: string[];
+};
+
+async function generateAIEventsForCity(cityId: string, cityName: string): Promise<RadarEvent[] | null> {
+  const cacheKey = `events-ai-radar-${cityId}-${new Date().toISOString().slice(0, 13)}`;
+  const cached = await getCached<{ events: RadarEvent[] }>(cacheKey);
+  if (cached?.events?.length) return cached.events;
+
+  const month = new Date().toLocaleString("en-IN", { month: "long" });
+  const year = new Date().getFullYear();
+  const base = INDIA_CITIES[cityId] ?? INDIA_CITIES["delhi-in"];
+
+  const result = await generateJson<{ events: AIEventInput[] }>(
+    `Generate 5 realistic current events happening in ${cityName}, India for ${month} ${year}. Include festivals, food events, sports, cultural events typical for this city and season.
+Return JSON: {"events": [{"name":"Event Name","category":"food|music|sports|festival|culture|business|market","location":"Specific venue or neighbourhood in ${cityName}","activity":80,"crowd":"High","startTime":"18:00","endTime":"23:00","peakTime":"20:00","aiTip":"One practical tip for visitors","emoji":"🎉","trending":true,"tags":["tag1","tag2"]}]}`,
+    { events: [] }
+  );
+
+  if (!result.events?.length) return null;
+
+  const PALETTE = ["#a29bfe", "#6c5ce7", "#74b9ff", "#00cec9", "#fd79a8", "#fdcb6e", "#e17055", "#55efc4"];
+
+  const mapped: RadarEvent[] = result.events.map((e, i) => {
+    const sh = parseInt(e.startTime) || 10;
+    const ph = parseInt(e.peakTime) || sh + 2;
+    const eh = parseInt(e.endTime) || ph + 2;
+    const duration = Math.max(1, (eh >= sh ? eh - sh : eh + 24 - sh));
+    const hours: { hour: string; level: number }[] = [];
+    for (let h = 0; h <= duration; h++) {
+      const cur = (sh + h) % 24;
+      const distFromPeak = Math.abs(((cur - ph + 24) % 24));
+      const level = Math.round(e.activity * Math.max(0.25, 1 - (distFromPeak / (duration / 2 || 1)) * 0.65));
+      const suffix = cur < 12 ? "AM" : "PM";
+      const disp = `${cur === 0 ? 12 : cur > 12 ? cur - 12 : cur} ${suffix}`;
+      hours.push({ hour: disp, level: Math.min(100, level) });
+    }
+    return {
+      id: `ai-${cityId}-${i}`,
+      name: e.name,
+      category: e.category,
+      city: cityName,
+      cityId,
+      location: e.location,
+      lat: base.lat + (Math.random() - 0.5) * 0.12,
+      lng: base.lng + (Math.random() - 0.5) * 0.12,
+      x: base.x + (Math.random() - 0.5) * 4,
+      y: base.y + (Math.random() - 0.5) * 4,
+      activity: e.activity,
+      crowd: e.crowd,
+      startTime: e.startTime,
+      endTime: e.endTime,
+      peakTime: e.peakTime,
+      crowdByHour: hours,
+      impact: {
+        traffic: e.activity > 85 ? "Very High" : e.activity > 70 ? "High" : "Medium",
+        restaurants: e.crowd === "Very High" ? "Packed" : e.crowd === "High" ? "Very Busy" : "Busy",
+        parking: e.crowd === "Very High" ? "No Parking" : "Limited",
+        transport: e.activity > 75 ? "Active" : "Normal",
+      },
+      distance: Math.round((0.5 + Math.random() * 8) * 10) / 10,
+      aiTip: e.aiTip,
+      emoji: e.emoji,
+      color: PALETTE[i % PALETTE.length],
+      trending: e.trending,
+      tags: e.tags,
+    };
+  });
+
+  await setCached(cacheKey, "events-ai-radar", cityId, { events: mapped }, 60);
+  return mapped;
+}
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 router.get("/events/radar", async (req, res): Promise<void> => {
   const cityId = String(req.query.cityId || "delhi-in");
   const city = INDIA_CITIES[cityId] || INDIA_CITIES["delhi-in"];
-  const events = getEventsForCity(cityId);
+
+  let events: RadarEvent[] = [];
+  let isAI = false;
+  try {
+    const aiEvents = await generateAIEventsForCity(cityId, city.name);
+    if (aiEvents && aiEvents.length > 0) { events = aiEvents; isAI = true; }
+  } catch { /* fallback below */ }
+
+  if (!events.length) events = getEventsForCity(cityId);
 
   const stats = {
     liveEvents: events.length,
@@ -256,9 +341,10 @@ router.get("/events/radar", async (req, res): Promise<void> => {
     cityId,
     cityName: city.name,
     events,
-    allEvents: RADAR_EVENTS,
+    allEvents: isAI ? events : RADAR_EVENTS,
     stats,
     updatedAt: new Date().toISOString(),
+    isAI,
   });
 });
 

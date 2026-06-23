@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Building2, TrendingUp, IndianRupee, MapPin, Loader2, Search, BarChart3, Users, Coffee, Zap, Home, Globe2, ChevronRight, Star } from "lucide-react";
+import { Building2, TrendingUp, IndianRupee, MapPin, Loader2, Search, BarChart3, Users, Coffee, Zap, Home, Globe2, ChevronRight, Star, RefreshCw, Clock } from "lucide-react";
 import { askJSON, askAI } from "@/lib/ai";
 
 const SECTORS = [
@@ -37,6 +37,9 @@ type MarketEntry = {
   estimatedRevenue: string; risks: string; recommendation: string;
 };
 
+type YieldRow = { city: string; type: string; yield: string; rent: string; trend: string };
+type ResidentialRow = { city: string; yield: string; price: string; trend: string };
+
 export default function BusinessIntelligence() {
   const [city, setCity] = useState("");
   const [sector, setSector] = useState("cafe");
@@ -44,6 +47,30 @@ export default function BusinessIntelligence() {
   const [result, setResult] = useState<MarketEntry | null>(null);
   const [fullAnalysis, setFullAnalysis] = useState("");
   const [tab, setTab] = useState("market");
+
+  const [aiCommercial, setAiCommercial] = useState<YieldRow[] | null>(null);
+  const [aiResidential, setAiResidential] = useState<ResidentialRow[] | null>(null);
+  const [yieldsLoading, setYieldsLoading] = useState(false);
+  const [yieldsUpdated, setYieldsUpdated] = useState<Date | null>(null);
+
+  const refreshYields = useCallback(async () => {
+    setYieldsLoading(true);
+    const year = new Date().getFullYear();
+    const [comm, resi] = await Promise.all([
+      askJSON<{ yields: YieldRow[] }>(
+        `Current commercial rental yields for top Indian micro-markets in ${year}. Return JSON: {"yields":[{"city":"City (Micro-market)","type":"Commercial","yield":"X.X%","rent":"₹XX-XX/sqft","trend":"↑ Rising|→ Stable|↑ Strong|↓ Cooling"}]}. Include 8 entries: Bangalore Koramangala, Bangalore Whitefield, Mumbai BKC, Mumbai Andheri West, Hyderabad HITEC City, Pune Hinjewadi, Delhi Gurgaon Cyber City, Surat Ring Road.`,
+        { yields: RENTAL_CITIES }
+      ),
+      askJSON<{ yields: ResidentialRow[] }>(
+        `Current residential rental yields for top Indian micro-markets in ${year}. Return JSON: {"yields":[{"city":"City (Micro-market)","yield":"X.X%","price":"₹XX-XX L","trend":"↑|→|↓"}]}. Include 6 entries: Bangalore Sarjapur, Hyderabad Miyapur, Pune Wakad, Mumbai Navi Mumbai, Chennai OMR, Ahmedabad SG Highway.`,
+        { yields: RESIDENTIAL_YIELDS }
+      ),
+    ]);
+    if (comm.yields?.length) setAiCommercial(comm.yields);
+    if (resi.yields?.length) setAiResidential(resi.yields);
+    setYieldsUpdated(new Date());
+    setYieldsLoading(false);
+  }, []);
 
   const analyze = useCallback(async () => {
     if (!city.trim()) return;
@@ -196,53 +223,77 @@ export default function BusinessIntelligence() {
         {tab === "rental" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <div className="bg-black/40 border border-white/10 rounded-2xl p-6">
-              <h3 className="font-bold mb-4 flex items-center gap-2">
-                <IndianRupee className="w-5 h-5 text-green-400" /> Commercial Rental Yields — India 2025
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="text-left py-3 text-xs text-white/40">Location</th>
-                      <th className="text-left py-3 text-xs text-white/40">Gross Yield</th>
-                      <th className="text-left py-3 text-xs text-white/40">Rent/sqft/month</th>
-                      <th className="text-left py-3 text-xs text-white/40">Trend</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {RENTAL_CITIES.map(r => (
-                      <tr key={r.city} className="border-b border-white/5 hover:bg-white/3">
-                        <td className="py-3 text-sm font-medium">{r.city}</td>
-                        <td className="py-3">
-                          <span className={`text-sm font-bold ${parseFloat(r.yield) >= 6.5 ? "text-green-400" : parseFloat(r.yield) >= 5.5 ? "text-amber-400" : "text-white/60"}`}>{r.yield}</span>
-                        </td>
-                        <td className="py-3 text-sm text-white/60">{r.rent}</td>
-                        <td className="py-3 text-sm">{r.trend.includes("↑") ? <span className="text-green-400">{r.trend}</span> : <span className="text-white/40">{r.trend}</span>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold flex items-center gap-2">
+                  <IndianRupee className="w-5 h-5 text-green-400" /> Commercial Rental Yields — India {new Date().getFullYear()}
+                </h3>
+                <div className="flex items-center gap-3">
+                  {yieldsUpdated && (
+                    <span className="flex items-center gap-1 text-xs text-white/30"><Clock className="w-3 h-3" /> {Math.round((Date.now() - yieldsUpdated.getTime()) / 60000)}m ago</span>
+                  )}
+                  <button onClick={refreshYields} disabled={yieldsLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg text-xs hover:brightness-110 disabled:opacity-40">
+                    {yieldsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    {aiCommercial ? "Refresh AI" : "Load AI Data"}
+                  </button>
+                </div>
               </div>
+              {aiCommercial && <div className="flex items-center gap-1 text-xs text-green-400 mb-3"><Zap className="w-3 h-3" /> AI-generated data for {new Date().getFullYear()}</div>}
+              {yieldsLoading && !aiCommercial ? (
+                <div className="space-y-2">{[1,2,3,4,5,6,7,8].map(i => <div key={i} className="h-10 bg-white/5 rounded animate-pulse" />)}</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left py-3 text-xs text-white/40">Location</th>
+                        <th className="text-left py-3 text-xs text-white/40">Gross Yield</th>
+                        <th className="text-left py-3 text-xs text-white/40">Rent/sqft/month</th>
+                        <th className="text-left py-3 text-xs text-white/40">Trend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(aiCommercial ?? RENTAL_CITIES).map(r => (
+                        <tr key={r.city} className="border-b border-white/5 hover:bg-white/3">
+                          <td className="py-3 text-sm font-medium">{r.city}</td>
+                          <td className="py-3">
+                            <span className={`text-sm font-bold ${parseFloat(r.yield) >= 6.5 ? "text-green-400" : parseFloat(r.yield) >= 5.5 ? "text-amber-400" : "text-white/60"}`}>{r.yield}</span>
+                          </td>
+                          <td className="py-3 text-sm text-white/60">{r.rent}</td>
+                          <td className="py-3 text-sm">{r.trend.includes("↑") ? <span className="text-green-400">{r.trend}</span> : <span className="text-white/40">{r.trend}</span>}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             <div className="bg-black/40 border border-white/10 rounded-2xl p-6">
-              <h3 className="font-bold mb-4 flex items-center gap-2">
-                <Home className="w-5 h-5 text-green-400" /> Residential Yields — Key Micro-Markets
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {RESIDENTIAL_YIELDS.map(r => (
-                  <div key={r.city} className="flex items-center justify-between p-4 bg-white/3 border border-white/8 rounded-xl">
-                    <div>
-                      <div className="font-medium text-sm">{r.city}</div>
-                      <div className="text-xs text-white/40 mt-0.5">{r.price}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-xl font-black ${parseFloat(r.yield) >= 3.5 ? "text-green-400" : "text-amber-400"}`}>{r.yield}</div>
-                      <div className="text-xs text-white/40">{r.trend}</div>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold flex items-center gap-2">
+                  <Home className="w-5 h-5 text-green-400" /> Residential Yields — Key Micro-Markets
+                </h3>
+                {aiResidential && <span className="flex items-center gap-1 text-xs text-green-400"><Zap className="w-3 h-3" /> AI {new Date().getFullYear()}</span>}
               </div>
+              {yieldsLoading && !aiResidential ? (
+                <div className="grid grid-cols-2 gap-3">{[1,2,3,4,5,6].map(i => <div key={i} className="h-16 bg-white/5 rounded-xl animate-pulse" />)}</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {(aiResidential ?? RESIDENTIAL_YIELDS).map(r => (
+                    <div key={r.city} className="flex items-center justify-between p-4 bg-white/3 border border-white/8 rounded-xl">
+                      <div>
+                        <div className="font-medium text-sm">{r.city}</div>
+                        <div className="text-xs text-white/40 mt-0.5">{r.price}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-xl font-black ${parseFloat(r.yield) >= 3.5 ? "text-green-400" : "text-amber-400"}`}>{r.yield}</div>
+                        <div className="text-xs text-white/40">{r.trend}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-white/20 mt-4">* Yields are indicative. Verify with local property advisors. Does not account for property tax, maintenance, vacancy.</p>
             </div>
           </motion.div>

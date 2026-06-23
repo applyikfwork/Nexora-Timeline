@@ -53,12 +53,28 @@ function SkeletonRow() {
 }
 
 // ── Overview Tab ────────────────────────────────────────────────────────────
+function StatSkeleton() {
+  return (
+    <div className="p-5 rounded-2xl border border-white/8 bg-black/30 animate-pulse">
+      <div className="h-3 w-24 bg-white/10 rounded-full mb-4" />
+      <div className="h-8 w-16 bg-white/15 rounded-lg mb-2" />
+      <div className="h-2.5 w-32 bg-white/6 rounded-full" />
+    </div>
+  );
+}
+
 function OverviewTab({ token }: { token: string }) {
   const [stats, setStats] = useState<{ totalCacheEntries: number; activeCacheEntries: number; expiredCacheEntries: number; userCount: number } | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [announcement, setAnnouncement] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch("/admin/stats", {}, token).then(r => r.ok ? r.json() : null).then(d => d && setStats(d)).catch(() => {});
+    setStatsLoading(true);
+    apiFetch("/admin/stats", {}, token)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setStats(d); })
+      .catch(() => {})
+      .finally(() => setStatsLoading(false));
     apiFetch("/admin/announcement").then(r => r.ok ? r.json() : null).then(d => d?.message && setAnnouncement(d.message)).catch(() => {});
   }, [token]);
 
@@ -71,24 +87,31 @@ function OverviewTab({ token }: { token: string }) {
         </div>
       )}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={Database} label="Cache Entries" value={stats?.activeCacheEntries ?? "—"} sub="Active (non-expired)" color="green" />
-        <StatCard icon={Clock} label="Expired Entries" value={stats?.expiredCacheEntries ?? "—"} sub="Safe to purge" color="amber" />
-        <StatCard icon={Users} label="Signed-up Users" value={stats?.userCount ?? "—"} sub="Via Supabase Auth" color="violet" />
-        <StatCard icon={BrainCircuit} label="Total Cached" value={stats?.totalCacheEntries ?? "—"} sub="All cache rows" color="blue" />
+        {statsLoading ? (
+          <>{[1,2,3,4].map(i => <StatSkeleton key={i} />)}</>
+        ) : (
+          <>
+            <StatCard icon={Database} label="Cache Entries" value={stats?.activeCacheEntries ?? 0} sub="Active (non-expired)" color="green" />
+            <StatCard icon={Clock} label="Expired Entries" value={stats?.expiredCacheEntries ?? 0} sub="Safe to purge" color="amber" />
+            <StatCard icon={Users} label="Signed-up Users" value={stats?.userCount ?? 0} sub="Via Supabase Auth" color="violet" />
+            <StatCard icon={BrainCircuit} label="Total Cached" value={stats?.totalCacheEntries ?? 0} sub="All cache rows" color="blue" />
+          </>
+        )}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Section title="System Status" icon={Server}>
           {[
-            { label: "API Server", detail: "Express 5 + Node 24", ok: true },
-            { label: "Database", detail: "Supabase PostgreSQL", ok: !!stats },
-            { label: "Auth System", detail: "Supabase Auth", ok: true },
-            { label: "AI Cache", detail: "24h TTL in PostgreSQL", ok: true },
+            { label: "API Server", detail: "Express 5 + Node 24", status: "online" as const },
+            { label: "Database", detail: "Supabase PostgreSQL", status: statsLoading ? "checking" as const : stats ? "online" as const : "error" as const },
+            { label: "Auth System", detail: "Supabase Auth", status: "online" as const },
+            { label: "AI Cache", detail: "24h TTL in PostgreSQL", status: "online" as const },
           ].map(s => (
             <div key={s.label} className="flex items-center justify-between py-3 border-b border-white/5">
               <div><div className="text-sm font-medium">{s.label}</div><div className="text-xs text-white/30">{s.detail}</div></div>
               <div className="flex items-center gap-1.5">
-                {s.ok ? <CheckCircle className="w-4 h-4 text-green-400" /> : <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />}
-                <span className={`text-xs ${s.ok ? "text-green-400" : "text-amber-400"}`}>{s.ok ? "Online" : "Checking"}</span>
+                {s.status === "online" && <><CheckCircle className="w-4 h-4 text-green-400" /><span className="text-xs text-green-400">Online</span></>}
+                {s.status === "checking" && <><Loader2 className="w-4 h-4 text-amber-400 animate-spin" /><span className="text-xs text-amber-400">Checking</span></>}
+                {s.status === "error" && <><XCircle className="w-4 h-4 text-red-400" /><span className="text-xs text-red-400">Error</span></>}
               </div>
             </div>
           ))}

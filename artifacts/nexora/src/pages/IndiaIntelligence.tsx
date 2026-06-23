@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   IndianRupee, Map, Cloud, Building2, Train, Wind, ChevronRight,
   Calendar, Flame, Sparkles, Loader2, TrendingUp, MapPin, Star,
-  Sun, Droplets, AlertTriangle, Globe2, BarChart3, Users
+  Sun, Droplets, AlertTriangle, Globe2, BarChart3, Users, RefreshCw, Clock, Zap
 } from "lucide-react";
 import { askJSON, askAI } from "@/lib/ai";
 
@@ -75,11 +75,59 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
   );
 }
 
+type FestivalAI = { name: string; date: string; cities: string[]; impact: string; type: string; desc: string };
+type MonsoonAI = { city: string; onset: string; peak: string; flood_risk: string; zones: string; avoid: string };
+const DAILY_SPOTLIGHT_IDX = Math.floor(Date.now() / 86400000) % TIER2_CITIES.length;
+
 export default function IndiaIntelligence() {
   const [tab, setTab] = useState("metros");
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [cityData, setCityData] = useState<string>("");
   const [loadingCity, setLoadingCity] = useState(false);
+
+  const [aiFestivals, setAiFestivals] = useState<FestivalAI[] | null>(null);
+  const [festivalsLoading, setFestivalsLoading] = useState(false);
+  const [festivalsUpdated, setFestivalsUpdated] = useState<Date | null>(null);
+
+  const [aiMonsoon, setAiMonsoon] = useState<MonsoonAI[] | null>(null);
+  const [monsoonLoading, setMonsoonLoading] = useState(false);
+  const [monsoonUpdated, setMonsoonUpdated] = useState<Date | null>(null);
+
+  const [spotlightData, setSpotlightData] = useState<string>("");
+  const [spotlightLoading, setSpotlightLoading] = useState(false);
+  const spotlightCity = TIER2_CITIES[DAILY_SPOTLIGHT_IDX];
+
+  const refreshFestivals = useCallback(async () => {
+    setFestivalsLoading(true);
+    const year = new Date().getFullYear();
+    const data = await askJSON<{ festivals: FestivalAI[] }>(
+      `List 8 major Indian festivals for ${year} with crowd and travel intelligence. Return JSON: {"festivals":[{"name":"Festival Name","date":"Month or date range","cities":["City1","City2"],"impact":"🔴 High|🟠 High|🟡 Medium","type":"crowd|traffic|travel","desc":"2-sentence specific impact description with practical advice"}]}`,
+      { festivals: FESTIVALS }
+    );
+    if (data.festivals?.length) { setAiFestivals(data.festivals); setFestivalsUpdated(new Date()); }
+    setFestivalsLoading(false);
+  }, []);
+
+  const refreshMonsoon = useCallback(async () => {
+    setMonsoonLoading(true);
+    const year = new Date().getFullYear();
+    const data = await askJSON<{ cities: MonsoonAI[] }>(
+      `Monsoon ${year} intelligence for 6 Indian cities: Mumbai, Delhi, Bangalore, Chennai, Hyderabad, Pune. Return JSON: {"cities":[{"city":"City","onset":"Month Day (actual ${year} forecast)","peak":"Month","flood_risk":"Extreme|High|Medium|Low","zones":"comma-separated vulnerable areas/neighborhoods","avoid":"Date range to avoid visiting"}]}`,
+      { cities: MONSOON_DATA }
+    );
+    if (data.cities?.length) { setAiMonsoon(data.cities); setMonsoonUpdated(new Date()); }
+    setMonsoonLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (tab === "tier2" && !spotlightData && spotlightCity) {
+      setSpotlightLoading(true);
+      askAI(
+        `Give a 3-point intelligence spotlight on ${spotlightCity.city}, ${spotlightCity.state} as a rising Indian city. Cover: (1) why it's emerging now — specific infrastructure or investment triggers, (2) best business/real estate opportunities with specific areas or zones, (3) quality of life score vs cost of living vs metro cities. Be specific, use data.`,
+        spotlightCity.city
+      ).then(d => { setSpotlightData(d); setSpotlightLoading(false); });
+    }
+  }, [tab, spotlightCity, spotlightData]);
 
   const analyzeCity = useCallback(async (city: string) => {
     setSelectedCity(city);
@@ -204,31 +252,47 @@ export default function IndiaIntelligence() {
         {tab === "festivals" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <GlassCard className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Calendar className="w-5 h-5 text-orange-400" />
-                <h3 className="font-bold">India Festival Intelligence Calendar</h3>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-orange-400" />
+                  <h3 className="font-bold">India Festival Intelligence Calendar</h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  {festivalsUpdated && (
+                    <span className="flex items-center gap-1 text-xs text-white/30"><Clock className="w-3 h-3" /> Updated {Math.round((Date.now() - festivalsUpdated.getTime()) / 60000)}m ago</span>
+                  )}
+                  <button onClick={refreshFestivals} disabled={festivalsLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-lg text-xs hover:brightness-110 disabled:opacity-40">
+                    {festivalsLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                    {aiFestivals ? "Refresh AI" : "Load AI Data"}
+                  </button>
+                </div>
               </div>
-              <p className="text-white/40 text-sm mb-6">How major festivals affect crowd density, hotel prices, traffic, and business across India.</p>
-              <div className="space-y-4">
-                {FESTIVALS.map(f => (
-                  <div key={f.name} className="p-4 bg-white/3 border border-white/8 rounded-xl hover:border-orange-500/30 transition-all">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-white">{f.name}</span>
-                          <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full">{f.date}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full border ${f.type === "crowd" ? "bg-red-500/10 text-red-400 border-red-500/20" : f.type === "traffic" ? "bg-orange-500/10 text-orange-400 border-orange-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>{f.type}</span>
+              <p className="text-white/40 text-sm mb-6">How major festivals affect crowd density, hotel prices, traffic, and business across India.{aiFestivals && <span className="text-green-400 ml-2">✓ AI-generated for {new Date().getFullYear()}</span>}</p>
+              {festivalsLoading && !aiFestivals ? (
+                <div className="space-y-3">{[1,2,3,4].map(i => <div key={i} className="h-20 bg-white/5 rounded-xl animate-pulse" />)}</div>
+              ) : (
+                <div className="space-y-4">
+                  {(aiFestivals ?? FESTIVALS).map((f, idx) => (
+                    <div key={idx} className="p-4 bg-white/3 border border-white/8 rounded-xl hover:border-orange-500/30 transition-all">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-white">{f.name}</span>
+                            <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full">{f.date}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full border ${f.type === "crowd" ? "bg-red-500/10 text-red-400 border-red-500/20" : f.type === "traffic" ? "bg-orange-500/10 text-orange-400 border-orange-500/20" : "bg-blue-500/10 text-blue-400 border-blue-500/20"}`}>{f.type}</span>
+                          </div>
+                          <div className="text-xs text-white/50 mb-2">📍 {f.cities.join(", ")}</div>
+                          <p className="text-sm text-white/70">{f.desc}</p>
                         </div>
-                        <div className="text-xs text-white/50 mb-2">📍 {f.cities.join(", ")}</div>
-                        <p className="text-sm text-white/70">{f.desc}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-sm font-bold">{f.impact}</div>
+                        <div className="text-right flex-shrink-0">
+                          <div className="text-sm font-bold">{f.impact}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </GlassCard>
           </motion.div>
         )}
@@ -237,39 +301,55 @@ export default function IndiaIntelligence() {
         {tab === "monsoon" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <GlassCard className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <Cloud className="w-5 h-5 text-blue-400" />
-                <h3 className="font-bold">Monsoon Intelligence — City by City</h3>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Cloud className="w-5 h-5 text-blue-400" />
+                  <h3 className="font-bold">Monsoon Intelligence — City by City</h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  {monsoonUpdated && (
+                    <span className="flex items-center gap-1 text-xs text-white/30"><Clock className="w-3 h-3" /> Updated {Math.round((Date.now() - monsoonUpdated.getTime()) / 60000)}m ago</span>
+                  )}
+                  <button onClick={refreshMonsoon} disabled={monsoonLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-lg text-xs hover:brightness-110 disabled:opacity-40">
+                    {monsoonLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                    {aiMonsoon ? "Refresh AI" : `Load ${new Date().getFullYear()} Data`}
+                  </button>
+                </div>
               </div>
-              <p className="text-white/40 text-sm mb-6">When monsoon hits, which areas flood, and when to avoid travel. Uniquely Indian insight no global app provides.</p>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="text-left py-3 text-sm text-white/40">City</th>
-                      <th className="text-left py-3 text-sm text-white/40">Onset</th>
-                      <th className="text-left py-3 text-sm text-white/40">Peak</th>
-                      <th className="text-left py-3 text-sm text-white/40">Flood Risk</th>
-                      <th className="text-left py-3 text-sm text-white/40">Vulnerable Areas</th>
-                      <th className="text-left py-3 text-sm text-white/40">Avoid Dates</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {MONSOON_DATA.map(r => (
-                      <tr key={r.city} className="border-b border-white/5 hover:bg-white/3">
-                        <td className="py-3 font-semibold">{r.city}</td>
-                        <td className="py-3 text-sm text-blue-400">{r.onset}</td>
-                        <td className="py-3 text-sm text-white/60">{r.peak}</td>
-                        <td className="py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${r.flood_risk === "Extreme" ? "bg-red-500/20 text-red-400 border-red-500/30" : r.flood_risk === "High" ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"}`}>{r.flood_risk}</span>
-                        </td>
-                        <td className="py-3 text-xs text-white/50">{r.zones}</td>
-                        <td className="py-3 text-xs text-red-400 font-medium">{r.avoid}</td>
+              <p className="text-white/40 text-sm mb-6">When monsoon hits, which areas flood, and when to avoid travel. Uniquely Indian insight no global app provides.{aiMonsoon && <span className="text-green-400 ml-2">✓ AI forecast for {new Date().getFullYear()}</span>}</p>
+              {monsoonLoading && !aiMonsoon ? (
+                <div className="space-y-2">{[1,2,3,4,5,6].map(i => <div key={i} className="h-10 bg-white/5 rounded animate-pulse" />)}</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10">
+                        <th className="text-left py-3 text-sm text-white/40">City</th>
+                        <th className="text-left py-3 text-sm text-white/40">Onset</th>
+                        <th className="text-left py-3 text-sm text-white/40">Peak</th>
+                        <th className="text-left py-3 text-sm text-white/40">Flood Risk</th>
+                        <th className="text-left py-3 text-sm text-white/40">Vulnerable Areas</th>
+                        <th className="text-left py-3 text-sm text-white/40">Avoid Dates</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {(aiMonsoon ?? MONSOON_DATA).map(r => (
+                        <tr key={r.city} className="border-b border-white/5 hover:bg-white/3">
+                          <td className="py-3 font-semibold">{r.city}</td>
+                          <td className="py-3 text-sm text-blue-400">{r.onset}</td>
+                          <td className="py-3 text-sm text-white/60">{r.peak}</td>
+                          <td className="py-3">
+                            <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${r.flood_risk === "Extreme" ? "bg-red-500/20 text-red-400 border-red-500/30" : r.flood_risk === "High" ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"}`}>{r.flood_risk}</span>
+                          </td>
+                          <td className="py-3 text-xs text-white/50">{r.zones}</td>
+                          <td className="py-3 text-xs text-red-400 font-medium">{r.avoid}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </GlassCard>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -339,6 +419,47 @@ export default function IndiaIntelligence() {
         {/* TIER 2 RISING */}
         {tab === "tier2" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+
+            {/* Daily Rotating Spotlight */}
+            <GlassCard className="p-6 border-amber-500/20 bg-amber-500/3">
+              <div className="flex items-center gap-2 mb-4">
+                <Flame className="w-5 h-5 text-amber-400" />
+                <span className="font-bold text-amber-400">Today's Tier 2 Spotlight</span>
+                <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full ml-auto">Rotates Daily</span>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-yellow-400 flex items-center justify-center text-2xl flex-shrink-0">
+                  🚀
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-1">
+                    <h3 className="text-xl font-black text-white">{spotlightCity.city}</h3>
+                    <span className="text-xs text-white/40">{spotlightCity.state}</span>
+                    {spotlightCity.emerging && <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full">🚀 Emerging</span>}
+                  </div>
+                  <div className="text-sm text-amber-400 font-medium mb-3">{spotlightCity.sector}</div>
+                  {spotlightLoading ? (
+                    <div className="space-y-2">
+                      <div className="h-3.5 bg-white/8 rounded-full animate-pulse w-full" />
+                      <div className="h-3.5 bg-white/5 rounded-full animate-pulse w-4/5" />
+                      <div className="h-3.5 bg-white/5 rounded-full animate-pulse w-3/5" />
+                    </div>
+                  ) : spotlightData ? (
+                    <p className="text-sm text-white/65 leading-relaxed">{spotlightData}</p>
+                  ) : (
+                    <p className="text-sm text-white/30 italic">Add Gemini API key to unlock AI spotlight briefings</p>
+                  )}
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-3xl font-black text-amber-400">{spotlightCity.growth}</div>
+                  <div className="text-xs text-white/30">Growth Score</div>
+                  <div className="h-1.5 bg-white/10 rounded-full mt-2 w-16">
+                    <div className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full" style={{ width: `${spotlightCity.growth}%` }} />
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+
             <GlassCard className="p-6">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-5 h-5 text-amber-400" />

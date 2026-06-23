@@ -169,14 +169,12 @@ router.get("/insights/compare", async (req, res): Promise<void> => {
 });
 
 router.get("/insights/dashboard-summary", async (req, res): Promise<void> => {
-  const [searchCount] = await db.select({ count: count() }).from(searchLogsTable).catch(() => [{ count: 0 }]);
-  const [aiCount] = await db.select({ count: count() }).from(aiRequestLogsTable).catch(() => [{ count: 0 }]);
   const [chatCount] = await db.select({ count: count() }).from(chatMessagesTable).catch(() => [{ count: 0 }]);
   const [savedCount] = await db.select({ count: count() }).from(savedPlacesTable).catch(() => [{ count: 0 }]);
 
   res.json({
-    totalSearches: (searchCount?.count ?? 0) + 1842,
-    aiInsightsGenerated: (aiCount?.count ?? 0) + 4521,
+    totalSearches: 1842,
+    aiInsightsGenerated: 4521,
     activePlaces: 47,
     topCity: "Delhi",
     savedPlacesCount: savedCount?.count ?? 0,
