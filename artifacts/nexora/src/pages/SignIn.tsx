@@ -1,57 +1,100 @@
 import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useLocation } from "wouter";
-import { Mail, Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { Mail, Loader2, AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function parseSupabaseError(err: { message?: string; code?: string }): string {
-  const raw = (err.message ?? "").trim();
-  if (!raw || raw === "{}" || raw === "{}") return "__unconfirmed__";
-  const lower = raw.toLowerCase();
-  if (lower.includes("not confirmed") || lower.includes("email_not_confirmed") || lower.includes("confirmation")) return "__unconfirmed__";
-  if (lower.includes("invalid login") || lower.includes("invalid_credentials") || lower.includes("invalid email or password")) return "Incorrect email or password. Please try again.";
-  if (lower.includes("too many")) return "Too many attempts. Please wait a few minutes and try again.";
-  if (lower.includes("user not found")) return "No account found with this email. Please sign up first.";
-  return raw || "Sign in failed. Please try again.";
+function readError(err: unknown): string {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  if (typeof err !== "object") return String(err);
+  const e = err as Record<string, unknown>;
+  const msg = (e.message ?? e.msg ?? e.error_description ?? e.error ?? "") as string;
+  const clean = String(msg ?? "").trim();
+  // Supabase sometimes returns the raw JSON body string as the message — catch that
+  if (!clean || clean === "{}" || clean.startsWith("{")) return "";
+  return clean;
+}
+
+function isUnconfirmedError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as Record<string, unknown>;
+  const msg = String(e.message ?? "").toLowerCase();
+  const code = String(e.code ?? e.status ?? "").toLowerCase();
+  const empty = !msg || msg === "{}" || msg.startsWith("{");
+  return (
+    empty ||
+    msg.includes("not confirmed") ||
+    msg.includes("email_not_confirmed") ||
+    msg.includes("confirmation") ||
+    code === "email_not_confirmed" ||
+    (e as { status?: number }).status === 422
+  );
 }
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
   const [, setLocation] = useLocation();
 
+  const reset = () => { setNeedsConfirmation(false); setResendSent(false); setErrorMsg(""); };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
-    setNeedsConfirmation(false);
-    setResendSent(false);
+    reset();
 
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { error: err } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (err) {
-      const parsed = parseSupabaseError(err);
-      if (parsed === "__unconfirmed__") {
-        setNeedsConfirmation(true);
+      if (err) {
+        // Log the raw error so you can inspect it in the browser console (F12 → Console)
+        console.error("[Nexora] auth error:", err, "| message:", err.message, "| code:", (err as Record<string, unknown>).code, "| status:", err.status);
+
+        if (isUnconfirmedError(err)) {
+          setNeedsConfirmation(true);
+        } else {
+          const m = readError(err);
+          if (!m || m === "{}") {
+            // Still empty — show a helpful generic message + offer resend as safety net
+            setNeedsConfirmation(true);
+          } else if (m.toLowerCase().includes("invalid") || m.toLowerCase().includes("credentials") || m.toLowerCase().includes("password")) {
+            setErrorMsg("Incorrect email or password — please try again.");
+          } else if (m.toLowerCase().includes("rate") || m.toLowerCase().includes("too many")) {
+            setErrorMsg("Too many attempts. Please wait a few minutes and try again.");
+          } else if (m.toLowerCase().includes("user not found") || m.toLowerCase().includes("no user")) {
+            setErrorMsg("No account found with this email. Please sign up first.");
+          } else {
+            setErrorMsg(m);
+            setNeedsConfirmation(true); // always surface the resend option as a fallback
+          }
+        }
       } else {
-        setError(parsed);
+        setLocation("/");
       }
-    } else {
-      setLocation("/");
+    } catch (ex) {
+      console.error("[Nexora] auth exception:", ex);
+      setErrorMsg("Network error — please check your connection and try again.");
     }
+
     setLoading(false);
   };
 
-  const handleResendConfirmation = async () => {
+  const handleResend = async () => {
+    if (!email) return;
     setResendLoading(true);
-    await supabase.auth.resend({ type: "signup", email });
-    setResendSent(true);
+    try {
+      await supabase.auth.resend({ type: "signup", email });
+      setResendSent(true);
+    } catch {
+      // ignore
+    }
     setResendLoading(false);
   };
 
@@ -78,10 +121,11 @@ export default function SignInPage() {
               <input
                 type="email"
                 value={email}
-                onChange={e => { setEmail(e.target.value); setNeedsConfirmation(false); setResendSent(false); }}
+                onChange={e => { setEmail(e.target.value); reset(); }}
                 required
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-white/25 focus:outline-none focus:border-violet-500/60 transition-colors text-sm"
                 placeholder="you@example.com"
+                autoComplete="email"
               />
             </div>
             <div>
@@ -93,40 +137,46 @@ export default function SignInPage() {
                 required
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder:text-white/25 focus:outline-none focus:border-violet-500/60 transition-colors text-sm"
                 placeholder="••••••••"
+                autoComplete="current-password"
               />
             </div>
 
-            {error && (
+            {/* Generic error */}
+            {errorMsg && !needsConfirmation && (
               <div className="flex items-start gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
+                <span>{errorMsg}</span>
               </div>
             )}
 
+            {/* Email-not-confirmed banner */}
             {needsConfirmation && (
-              <div className="bg-amber-500/10 border border-amber-500/25 rounded-lg px-4 py-3.5 space-y-3">
-                <div className="flex items-start gap-2">
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-4 space-y-3">
+                <div className="flex items-start gap-2.5">
                   <Mail className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-amber-300 text-sm font-semibold">Email not confirmed</p>
-                    <p className="text-amber-400/70 text-xs mt-0.5">
-                      Check your inbox for a confirmation link from Nexora. Click it before signing in.
+                    <p className="text-amber-300 text-sm font-semibold leading-snug">Email not confirmed yet</p>
+                    <p className="text-amber-400/70 text-xs mt-1 leading-relaxed">
+                      You need to confirm your email before signing in. Check your inbox (and spam) for a link from Nexora / Resend.
                     </p>
                   </div>
                 </div>
+
                 {resendSent ? (
-                  <div className="flex items-center gap-1.5 text-green-400 text-xs">
+                  <div className="flex items-center gap-1.5 text-green-400 text-xs font-medium pl-0.5">
                     <CheckCircle className="w-3.5 h-3.5" />
-                    Confirmation email sent to <span className="font-semibold">{email}</span>
+                    Confirmation email sent to <span className="font-bold">{email}</span>
                   </div>
                 ) : (
                   <button
                     type="button"
-                    onClick={handleResendConfirmation}
-                    disabled={resendLoading}
-                    className="flex items-center gap-1.5 text-xs text-amber-300 underline underline-offset-2 hover:text-amber-200 disabled:opacity-50"
+                    onClick={handleResend}
+                    disabled={resendLoading || !email}
+                    className="flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 underline underline-offset-2 disabled:opacity-50 pl-0.5"
                   >
-                    {resendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                    {resendLoading
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <RefreshCw className="w-3 h-3" />}
                     Resend confirmation email
                   </button>
                 )}
@@ -138,7 +188,9 @@ export default function SignInPage() {
               disabled={loading}
               className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
             >
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</> : "Sign In"}
+              {loading
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</>
+                : "Sign In"}
             </button>
           </form>
 
@@ -149,6 +201,11 @@ export default function SignInPage() {
             </a>
           </div>
         </div>
+
+        {/* Debug hint */}
+        <p className="text-center text-white/20 text-xs mt-4">
+          If login still fails, open browser console (F12) and look for <span className="font-mono">[Nexora] auth error</span> to see the exact Supabase response.
+        </p>
       </div>
     </div>
   );
