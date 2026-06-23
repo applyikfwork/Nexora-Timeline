@@ -1,13 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logger } from "./logger";
-
-const apiKey = process.env.GEMINI_API_KEY;
-
-if (!apiKey) {
-  logger.warn("GEMINI_API_KEY not set — AI features will use fallback data");
-}
-
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+import { getApiKey } from "./apiKeyService";
 
 export class RateLimitError extends Error {
   readonly isRateLimit = true as const;
@@ -33,22 +26,31 @@ function is429(err: unknown): boolean {
   return e?.status === 429 || String(e?.message ?? "").includes("429");
 }
 
-export async function generateText(prompt: string): Promise<string> {
-  if (!genAI) {
-    return "AI service unavailable. Please set GEMINI_API_KEY.";
+async function getGenAI(): Promise<GoogleGenerativeAI | null> {
+  const key = await getApiKey("gemini");
+  if (!key) {
+    logger.warn("GEMINI_API_KEY not configured — set it in Admin Panel → API Keys");
+    return null;
   }
+  return new GoogleGenerativeAI(key);
+}
+
+export async function generateText(prompt: string): Promise<string> {
+  const genAI = await getGenAI();
+  if (!genAI) return "AI service unavailable. Add your Gemini API key in Admin Panel → API Keys.";
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const result = await model.generateContent(prompt);
     return result.response.text();
   } catch (err) {
     if (is429(err)) throw new RateLimitError(extractRetryAfter(err));
-    logger.error({ err }, "Gemini API error");
+    logger.error({ err }, "Gemini generateText error");
     throw err;
   }
 }
 
 export async function generateJson<T>(prompt: string, fallback: T): Promise<T> {
+  const genAI = await getGenAI();
   if (!genAI) return fallback;
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
@@ -56,11 +58,20 @@ export async function generateJson<T>(prompt: string, fallback: T): Promise<T> {
       `${prompt}\n\nRespond ONLY with valid JSON. No markdown, no code blocks, just raw JSON.`
     );
     const text = result.response.text().trim();
-    const cleaned = text.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+    const cleaned = text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
     return JSON.parse(cleaned) as T;
   } catch (err) {
     if (is429(err)) throw new RateLimitError(extractRetryAfter(err));
     logger.warn({ err }, "Gemini JSON parse failed, using fallback");
     return fallback;
   }
+}
+
+export async function isGeminiConfigured(): Promise<boolean> {
+  const key = await getApiKey("gemini");
+  return !!key;
 }
