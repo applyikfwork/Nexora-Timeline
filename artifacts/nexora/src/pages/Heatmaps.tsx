@@ -209,6 +209,7 @@ export default function Heatmaps() {
   const [location, setLocation] = useState(activePlaceName);
   const [showSearch, setShowSearch] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   /* layers */
   const [layers, setLayers] = useState<Layer[]>(
@@ -259,6 +260,17 @@ export default function Heatmaps() {
   }, [sessionId]);
 
   useEffect(() => { reloadSavedMaps(); }, [reloadSavedMaps]);
+
+  /* close search dropdown on outside click */
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target as Node)) {
+        setShowSearch(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   /* ─── search ─── */
   const handleSearch = (v: string) => {
@@ -410,7 +422,7 @@ export default function Heatmaps() {
 
         {/* ── SEARCH ── */}
         <GlassCard className="p-5">
-          <div className="flex gap-3 relative">
+          <div className="flex gap-3 relative" ref={searchWrapperRef}>
             <div className="flex-1 relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
               <input

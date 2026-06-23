@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAppContext } from "@/lib/store";
 import { useSendChatMessage, useGetChatHistory } from "@workspace/api-client-react";
-import { MessageSquare, Send, Loader2, Bot, User, MapPin } from "lucide-react";
+import { MessageSquare, Send, Loader2, Bot, User, MapPin, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -9,6 +9,7 @@ export default function Chat() {
   const { selectedPlace } = useAppContext();
   const [sessionId] = useState(() => crypto.randomUUID());
   const [input, setInput] = useState("");
+  const [rateLimitMsg, setRateLimitMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { data: history, isLoading: loadingHistory, refetch } = useGetChatHistory(
@@ -32,6 +33,7 @@ export default function Chat() {
 
     const message = input;
     setInput("");
+    setRateLimitMsg(null);
 
     try {
       await sendMutation.mutateAsync({
@@ -43,8 +45,14 @@ export default function Chat() {
         }
       });
       refetch();
-    } catch (error) {
-      console.error(error);
+    } catch (error: unknown) {
+      const e = error as { response?: { status?: number; data?: { retryAfter?: number } } };
+      if (e?.response?.status === 429) {
+        const wait = e?.response?.data?.retryAfter ?? 60;
+        setRateLimitMsg(`AI quota reached — Gemini free tier limit hit. Please wait ${wait}s and try again.`);
+      } else {
+        setRateLimitMsg("Something went wrong. Please try again in a moment.");
+      }
     }
   };
 
@@ -72,6 +80,18 @@ export default function Chat() {
       <div className="flex-1 overflow-y-auto p-6 space-y-6 relative">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent pointer-events-none" />
         
+        {rateLimitMsg && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+            className="max-w-4xl mx-auto flex items-start gap-3 p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+            <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-orange-300 font-semibold text-sm">AI Quota Reached</p>
+              <p className="text-orange-400/80 text-sm mt-0.5">{rateLimitMsg}</p>
+            </div>
+            <button onClick={() => setRateLimitMsg(null)} className="ml-auto text-orange-400/60 hover:text-orange-400 text-xs">✕</button>
+          </motion.div>
+        )}
+
         {history?.length === 0 && !loadingHistory && (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto">
             <Bot className="w-16 h-16 text-white/10" />

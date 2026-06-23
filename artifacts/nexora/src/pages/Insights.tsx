@@ -35,8 +35,12 @@ function NeuralBg() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
+    const resize = () => {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
     const nodes = Array.from({ length: 18 }, (_, i) => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
@@ -67,12 +71,12 @@ function NeuralBg() {
       animId = requestAnimationFrame(draw);
     };
     draw();
-    return () => cancelAnimationFrame(animId);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", resize); };
   }, []);
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
 }
 
-/* ─── radar chart (canvas) ─── */
+/* ─── radar chart (canvas) — resize-aware ─── */
 function RadarChart({ scores }: { scores: RadarScore[] }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -80,15 +84,16 @@ function RadarChart({ scores }: { scores: RadarScore[] }) {
     if (!canvas || scores.length === 0) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const W = canvas.width = canvas.clientWidth;
-    const H = canvas.height = canvas.clientHeight;
-    const cx = W / 2, cy = H / 2;
-    const R = Math.min(W, H) * 0.38;
-    const n = scores.length;
-    let t = 0;
     let animId: number;
+    let t = 0;
+
     const draw = () => {
       t += 0.015;
+      const W = canvas.width = canvas.clientWidth;
+      const H = canvas.height = canvas.clientHeight;
+      const cx = W / 2, cy = H / 2;
+      const R = Math.min(W, H) * 0.38;
+      const n = scores.length;
       ctx.clearRect(0, 0, W, H);
       /* grid rings */
       [0.2, 0.4, 0.6, 0.8, 1.0].forEach(frac => {
@@ -134,7 +139,6 @@ function RadarChart({ scores }: { scores: RadarScore[] }) {
         const r = R * (s.value / 100) * pulse;
         ctx.fillStyle = "#a78bfa";
         ctx.beginPath(); ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 4, 0, Math.PI * 2); ctx.fill();
-        /* label */
         const lr = R * 1.25;
         ctx.fillStyle = "rgba(255,255,255,0.6)";
         ctx.font = "11px sans-serif";
@@ -145,6 +149,7 @@ function RadarChart({ scores }: { scores: RadarScore[] }) {
       });
       animId = requestAnimationFrame(draw);
     };
+
     draw();
     return () => cancelAnimationFrame(animId);
   }, [scores]);
@@ -193,6 +198,7 @@ export default function Insights() {
   const [location, setLocation] = useState(activePlaceName);
   const [showSearch, setShowSearch] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
 
   /* overview */
   const [overview, setOverview] = useState<{ summary: string; score: number } | null>(null);
@@ -270,6 +276,17 @@ export default function Insights() {
 
   useEffect(() => { reloadSaved(); }, [reloadSaved]);
 
+  /* close search dropdown on outside click */
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target as Node)) {
+        setShowSearch(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const loc = location || "a city";
 
   /* ─── search ─── */
@@ -314,6 +331,15 @@ export default function Insights() {
     setRadarScores(DEFAULT_RADAR.map(d => ({ ...d, value: radRes[d.label] ?? 70 })));
     setLoadingOverview(false); setLoadingRadar(false);
   }, [location]);
+
+  /* auto-analyze when page loads with an active place but no overview yet */
+  const didAutoAnalyze = useRef(false);
+  useEffect(() => {
+    if (location && !overview && !loadingOverview && !didAutoAnalyze.current) {
+      didAutoAnalyze.current = true;
+      generateOverview();
+    }
+  }, [location, overview, loadingOverview, generateOverview]);
 
   const generateSituation = useCallback(async () => {
     if (!location) return;
@@ -508,6 +534,7 @@ export default function Insights() {
       <div className="max-w-6xl mx-auto px-4 space-y-6">
 
         {/* ── SEARCH ── */}
+        <div ref={searchWrapperRef}>
         <GlassCard className="p-5 relative">
           <div className="flex gap-3">
             <div className="flex-1 relative">
@@ -549,6 +576,7 @@ export default function Insights() {
             ))}
           </div>
         </GlassCard>
+        </div>
 
         {/* ── OVERVIEW + RADAR ── */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -612,13 +640,22 @@ export default function Insights() {
               </button>
             </div>
             <div className="h-56 md:h-64">
-              {radarScores[0].value > 0 ? (
+              {loadingRadar ? (
+                <div className="h-full flex items-center justify-center">
+                  <div className="relative">
+                    <div className="w-32 h-32 rounded-full border border-violet-500/20 animate-pulse" />
+                    <div className="absolute inset-4 rounded-full border border-violet-500/20 animate-pulse delay-100" />
+                    <div className="absolute inset-8 rounded-full border border-violet-500/20 animate-pulse delay-200" />
+                    <Loader2 className="absolute inset-0 m-auto w-6 h-6 text-violet-400 animate-spin" />
+                  </div>
+                </div>
+              ) : radarScores[0].value > 0 ? (
                 <RadarChart scores={radarScores} />
               ) : (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center">
                     <Activity className="w-10 h-10 text-violet-400/10 mx-auto mb-2" />
-                    <p className="text-white/20 text-sm">{location ? "Click Scan to generate radar" : "Select a location first"}</p>
+                    <p className="text-white/20 text-sm">{location ? "Analyzing…" : "Select a location first"}</p>
                   </div>
                 </div>
               )}

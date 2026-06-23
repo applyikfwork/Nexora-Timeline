@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, ReactNode } from "react";
 import { Place } from "@workspace/api-client-react";
 import { useGeolocation, findNearestCity } from "@/hooks/useGeolocation";
 
@@ -11,6 +11,29 @@ function initSessionId(): string {
   const id = `sess-${Math.random().toString(36).slice(2)}-${Date.now()}`;
   localStorage.setItem(SESSION_KEY, id);
   return id;
+}
+
+function readPlaceFromUrl(): string {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("place") ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writePlaceToUrl(name: string) {
+  try {
+    const url = new URL(window.location.href);
+    if (name) {
+      url.searchParams.set("place", name);
+    } else {
+      url.searchParams.delete("place");
+    }
+    window.history.replaceState(null, "", url.toString());
+  } catch {
+    // ignore
+  }
 }
 
 interface AppContextType {
@@ -31,6 +54,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { state, retry } = useGeolocation();
 
   const [activePlaceName, setActivePlaceNameRaw] = useState<string>(() => {
+    // URL param takes priority over localStorage (enables shared links)
+    const fromUrl = readPlaceFromUrl();
+    if (fromUrl) return fromUrl;
     return localStorage.getItem(PLACE_KEY) ?? "";
   });
 
@@ -39,7 +65,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setActivePlaceName = useCallback((name: string) => {
     setActivePlaceNameRaw(name);
     localStorage.setItem(PLACE_KEY, name);
+    writePlaceToUrl(name);
   }, []);
+
+  // Keep URL in sync when the place changes externally (e.g. back/forward)
+  useEffect(() => {
+    const onPopState = () => {
+      const fromUrl = readPlaceFromUrl();
+      if (fromUrl && fromUrl !== activePlaceName) {
+        setActivePlaceNameRaw(fromUrl);
+        localStorage.setItem(PLACE_KEY, fromUrl);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [activePlaceName]);
 
   const geoCity = state.status === "granted" ? state.city : null;
   const geoStatus = state.status;

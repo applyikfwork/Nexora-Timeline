@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock, Search, Loader2, Sparkles, MessageSquare, Bookmark,
@@ -123,10 +123,21 @@ export default function TimeMachine() {
     } catch {}
   }, [sessionId]);
 
-  const { useEffect } = React;
   useEffect(() => { reloadJourneys(); }, [reloadJourneys]);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
+
+  /* close search dropdown on outside click */
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(e.target as Node)) {
+        setShowSearch(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   /* ─── search ─── */
   const handleSearchChange = (v: string) => {
@@ -327,7 +338,7 @@ export default function TimeMachine() {
             <MapPin className="w-5 h-5 text-amber-400" />
             <h2 className="text-lg font-bold">Enter Any Place</h2>
           </div>
-          <div className="relative">
+          <div className="relative" ref={searchWrapperRef}>
             <div className="flex gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
@@ -403,18 +414,20 @@ export default function TimeMachine() {
           </div>
 
           {/* slider */}
-          <div className="relative h-8 flex items-center mb-4">
+          <div className="relative h-10 flex items-center mb-4" style={{ touchAction: "none" }}>
             <div className="absolute inset-x-0 h-1.5 rounded-full overflow-hidden">
               <div className="h-full bg-gradient-to-r from-amber-500 via-blue-500 to-violet-500 opacity-30" />
               <div
-                className="h-full bg-gradient-to-r from-amber-500 via-blue-500 to-violet-500 absolute top-0 left-0 transition-all duration-100"
+                className="h-full bg-gradient-to-r from-amber-500 via-blue-500 to-violet-500 absolute top-0 left-0 transition-none"
                 style={{ width: `${((year - 1900) / 175) * 100}%` }}
               />
             </div>
             <input
               type="range" min={1900} max={2075} value={year}
+              onInput={e => setYear(Number((e.target as HTMLInputElement).value))}
               onChange={e => setYear(Number(e.target.value))}
-              className="w-full appearance-none bg-transparent cursor-pointer relative z-10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:cursor-grab"
+              style={{ touchAction: "none" }}
+              className="w-full appearance-none bg-transparent cursor-pointer relative z-10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:cursor-grab active:[&::-webkit-slider-thumb]:cursor-grabbing"
             />
           </div>
 
