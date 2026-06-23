@@ -41,3 +41,10 @@ externalPort = 3000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VITE_SUPABASE_URL = "https://wuromkfzldcmszyrhdqe.supabase.co"
+VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1cm9ta2Z6bGRjbXN6eXJoZHFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwODgzOTUsImV4cCI6MjA5NzY2NDM5NX0.PL8cHv-l_Feo5z5D985vyqMznh4acqP6Z3r9RTRau-8"
+SUPABASE_DATABASE_URL = "postgresql://postgres:_2reSpmEhER6qjH@db.wuromkfzldcmszyrhdqe.supabase.co:5432/postgres"

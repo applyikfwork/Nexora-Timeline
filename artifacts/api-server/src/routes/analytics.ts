@@ -1,19 +1,18 @@
 import { Router, type IRouter } from "express";
-import { db, searchLogsTable, aiRequestLogsTable, chatMessagesTable } from "@workspace/db";
-import { count, sql, desc } from "drizzle-orm";
+import { db, chatMessagesTable, savedPlacesTable } from "@workspace/db";
+import { count } from "drizzle-orm";
 import { GetPopularCitiesQueryParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
 router.get("/analytics/stats", async (_req, res): Promise<void> => {
-  const [searches] = await db.select({ count: count() }).from(searchLogsTable).catch(() => [{ count: 0 }]);
-  const [aiReqs] = await db.select({ count: count() }).from(aiRequestLogsTable).catch(() => [{ count: 0 }]);
   const [chats] = await db.select({ count: count() }).from(chatMessagesTable).catch(() => [{ count: 0 }]);
+  const [saved] = await db.select({ count: count() }).from(savedPlacesTable).catch(() => [{ count: 0 }]);
 
   res.json({
     totalUsers: 1284,
-    totalAiRequests: (aiReqs?.count ?? 0) + 4521,
-    totalApiCalls: (searches?.count ?? 0) + (chats?.count ?? 0) + 12847,
+    totalAiRequests: (chats?.count ?? 0) + 4521,
+    totalApiCalls: (chats?.count ?? 0) + (saved?.count ?? 0) + 12847,
     totalStorageUsed: "2.4 GB",
     dailyActiveUsers: 284,
     avgResponseTimeMs: 342,

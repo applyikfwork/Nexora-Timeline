@@ -9,16 +9,15 @@ India-first location intelligence platform — AI-powered city insights, metro d
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `SUPABASE_DATABASE_URL` — Supabase Postgres connection string (falls back to `DATABASE_URL`)
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - Frontend: React + Vite + Tailwind v4 + Framer Motion + Wouter
-- API: Express 5 + Clerk Auth middleware
-- DB: PostgreSQL + Drizzle ORM
-- Auth: Clerk (Replit-managed, appId: app_3FWmdHt3cg8GjfVXxjU1agjpzMV)
+- API: Express 5 + Supabase Auth middleware
+- DB: Supabase PostgreSQL + Drizzle ORM
+- Auth: Supabase Auth (email/password, JWT tokens)
 - AI: Gemini 2.0 Flash via GEMINI_API_KEY
 - Validation: Zod (v4), drizzle-zod
 - API codegen: Orval (from OpenAPI spec)
@@ -33,6 +32,9 @@ India-first location intelligence platform — AI-powered city insights, metro d
 - `lib/api-client-react/` — Generated React Query hooks
 - `lib/api-zod/` — Generated Zod schemas
 - `artifacts/nexora/src/pages/` — All page components
+- `artifacts/nexora/src/lib/auth.tsx` — Supabase AuthProvider + useAuth hook
+- `artifacts/nexora/src/lib/supabase.ts` — Supabase client (frontend, uses VITE_SUPABASE_*)
+- `artifacts/api-server/src/lib/supabase.ts` — Supabase admin client (backend, uses SERVICE_ROLE_KEY)
 - `artifacts/nexora/src/components/layout/` — Sidebar, AppLayout, MobileBottomNav
 - `artifacts/api-server/src/routes/` — All API route handlers
 
@@ -40,9 +42,10 @@ India-first location intelligence platform — AI-powered city insights, metro d
 
 - **India-first** — All ranking data, festival calendars, and business intelligence defaults to Indian cities
 - **24h AI Cache** — Factual AI responses cached for 1440 minutes in PostgreSQL to conserve Gemini quota
-- **Admin gate** — Admin panel at `/admin` is email-gated client-side to `xyzapplywork@gmail.com` via Clerk `useUser()`
-- **Clerk proxy** — `clerkProxyMiddleware` on `/api/__clerk` so the same Express server handles both API and Clerk OAuth callbacks
+- **Admin gate** — Admin panel at `/admin` is email-gated to `xyzapplywork@gmail.com` via `useAuth()` user email check
+- **Supabase Auth** — JWT tokens from Supabase Auth; backend verifies via `verifyToken()` using service role key
 - **Session-based persistence** — Non-authenticated users identified by `nexora_session_id` in localStorage
+- **Storage discipline** — `search_logs` and `ai_request_logs` tables removed to save Supabase free tier (500MB)
 
 ## Product
 
@@ -66,12 +69,27 @@ India-first location intelligence platform — AI-powered city insights, metro d
 ## Gotchas
 
 - Cache TTL for AI routes: factual routes = 1440min (24h), time-sensitive routes (crowd, alerts) = 60min
-- Clerk `publishableKey` must use `publishableKeyFromHost()` from `@clerk/react/internal` — never the raw env var
-- `tailwindcss({ optimize: false })` in vite.config.ts is required for Clerk themes to work in prod builds
-- `@layer theme, base, clerk, components, utilities;` must precede `@import 'tailwindcss'` in index.css
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` must be set as shared env vars for the frontend to connect to Supabase
+- `SUPABASE_SERVICE_ROLE_KEY` is used server-side only (never expose to frontend)
+- `lib/db/src/index.ts` prefers `SUPABASE_DATABASE_URL` over `DATABASE_URL` (Replit's built-in Postgres)
 - `pnpm --filter @workspace/nexora run typecheck` not `build` for verifying artifact (build needs workflow PORT/BASE_PATH)
+- `@layer theme, base, components, utilities;` in index.css (clerk layer removed)
+- `tailwindcss({ optimize: false })` in vite.config.ts is still required for reliable Tailwind v4 prod builds
+
+## Supabase Schema
+
+Run `supabase_schema.sql` in Supabase Dashboard → SQL Editor. Tables kept (storage-optimised):
+- `ai_cache` — 24h TTL AI response cache (purge expired rows regularly)
+- `chat_messages` — AI chat history per session (purge rows > 7 days old)
+- `saved_places`, `saved_insights`, `saved_journeys`, `saved_maps` — user saves (RLS enabled)
+- `city_watchlist` — smart alert subscriptions (RLS enabled)
+- `india_intelligence` — structured India city data cache
+- `admin_settings`, `feature_flags` — platform config
+
+Tables intentionally NOT used (removed to save storage):
+- `search_logs` — analytics waste, not user-facing
+- `ai_request_logs` — audit logs, not user-facing
 
 ## Pointers
 
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
-- See the `clerk-auth` skill for auth setup details

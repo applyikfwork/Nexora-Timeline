@@ -1,21 +1,29 @@
 import { Router, type IRouter } from "express";
 import { db, aiCacheTable } from "@workspace/db";
-import { sql, count, gt } from "drizzle-orm";
-import { getAuth } from "@clerk/express";
+import { sql, count } from "drizzle-orm";
+import { verifyToken } from "../lib/supabase";
 
 const router: IRouter = Router();
 
 const ADMIN_EMAILS = ["xyzapplywork@gmail.com"];
 
 async function requireAdmin(req: any, res: any, next: any) {
-  const auth = getAuth(req);
-  if (!auth?.sessionId) {
+  const authHeader = req.headers.authorization as string | undefined;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (!token) {
     return res.status(401).json({ error: "Unauthorized" });
   }
+
+  const user = await verifyToken(token);
+  if (!user || !ADMIN_EMAILS.includes(user.email ?? "")) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
   next();
 }
 
-router.get("/admin/stats", requireAdmin, async (req, res): Promise<void> => {
+router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
   try {
     const [cacheCount] = await db.select({ count: count() }).from(aiCacheTable);
     res.json({
@@ -29,7 +37,7 @@ router.get("/admin/stats", requireAdmin, async (req, res): Promise<void> => {
   }
 });
 
-router.get("/admin/cache", requireAdmin, async (req, res): Promise<void> => {
+router.get("/admin/cache", requireAdmin, async (_req, res): Promise<void> => {
   try {
     const entries = await db
       .select({
@@ -47,7 +55,7 @@ router.get("/admin/cache", requireAdmin, async (req, res): Promise<void> => {
   }
 });
 
-router.delete("/admin/cache", requireAdmin, async (req, res): Promise<void> => {
+router.delete("/admin/cache", requireAdmin, async (_req, res): Promise<void> => {
   try {
     await db.delete(aiCacheTable);
     res.json({ success: true, message: "Cache cleared" });

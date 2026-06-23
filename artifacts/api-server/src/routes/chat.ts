@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { createHash } from "crypto";
-import { db, chatMessagesTable, aiRequestLogsTable } from "@workspace/db";
+import { db, chatMessagesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { generateText, RateLimitError } from "../lib/gemini";
 import { getCached, setCached } from "../lib/aiCache";
@@ -96,15 +96,6 @@ router.post("/chat/message", async (req, res): Promise<void> => {
     content: (aiReply ?? "").trim(),
     placeContext: placeContext ?? null,
   }).returning();
-
-  /* 5. Log the request (non-blocking) */
-  db.insert(aiRequestLogsTable).values({
-    requestType: "chat",
-    placeId: placeId ?? null,
-    placeName: placeId ? PLACE_NAMES[placeId] : null,
-    responseTimeMs: Date.now() - startMs,
-    cached: fromCache ? "true" : "false",
-  }).catch(() => {});
 
   res.json({
     reply: savedReply.content,

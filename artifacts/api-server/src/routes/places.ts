@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, savedPlacesTable, searchLogsTable } from "@workspace/db";
+import { db, savedPlacesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { generateJson, generateText } from "../lib/gemini";
 import { getCached, setCached } from "../lib/aiCache";
@@ -47,8 +47,6 @@ router.get("/places/search", async (req, res): Promise<void> => {
       (p.state && p.state.toLowerCase().includes(query))
     )
     .slice(0, limit);
-
-  await db.insert(searchLogsTable).values({ query: q, resultCount: results.length }).catch(() => {});
 
   res.json(results);
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useUser } from "@clerk/react";
+import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
   Shield, Users, Database, Zap, BarChart3, Settings, Trash2,
@@ -46,11 +46,9 @@ function Section({ title, icon: Icon, children }: { title: string; icon: React.E
 }
 
 export default function AdminPanel() {
-  const { user, isLoaded } = useUser();
+  const { user, isLoaded, session } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
-  const [stats, setStats] = useState({
-    totalRequests: 0, cacheHits: 0, aiCalls: 0, searchLogs: 0
-  });
+  const [stats, setStats] = useState({ totalRequests: 0, cacheHits: 0, aiCalls: 0, searchLogs: 0 });
   const [cacheEntries, setCacheEntries] = useState<Array<{ id: number; request_type: string; cache_key: string; expires_at: string }>>([]);
   const [loadingCache, setLoadingCache] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
@@ -71,22 +69,25 @@ export default function AdminPanel() {
     { key: "admin_email", label: "Admin Email", value: ADMIN_EMAIL, type: "text" },
   ]);
 
-  const isAdmin = isLoaded && user?.emailAddresses?.some(e => e.emailAddress === ADMIN_EMAIL);
+  const isAdmin = isLoaded && user?.email === ADMIN_EMAIL;
+
+  const authHeader = (): Record<string, string> => session?.access_token
+    ? { Authorization: `Bearer ${session.access_token}` }
+    : {};
 
   useEffect(() => {
     if (!isAdmin) return;
-    // Fetch analytics stats
-    fetch(`${BASE}/api/admin/stats`).then(r => r.ok ? r.json() as Promise<typeof stats> : Promise.reject()).then(d => setStats(d)).catch(() => {});
+    fetch(`${BASE}/api/admin/stats`, { headers: authHeader() })
+      .then(r => r.ok ? r.json() as Promise<typeof stats> : Promise.reject())
+      .then(d => setStats(d))
+      .catch(() => {});
   }, [isAdmin]);
 
   const loadCache = async () => {
     setLoadingCache(true);
     try {
-      const r = await fetch(`${BASE}/api/admin/cache`);
-      if (r.ok) {
-        const data = await r.json() as typeof cacheEntries;
-        setCacheEntries(data);
-      }
+      const r = await fetch(`${BASE}/api/admin/cache`, { headers: authHeader() });
+      if (r.ok) setCacheEntries(await r.json() as typeof cacheEntries);
     } finally {
       setLoadingCache(false);
     }
@@ -95,7 +96,7 @@ export default function AdminPanel() {
   const clearCache = async () => {
     setClearingCache(true);
     try {
-      await fetch(`${BASE}/api/admin/cache`, { method: "DELETE" });
+      await fetch(`${BASE}/api/admin/cache`, { method: "DELETE", headers: authHeader() });
       setCacheEntries([]);
     } finally {
       setClearingCache(false);
@@ -148,7 +149,6 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_#0d0010_0%,_#000_60%)] text-white pb-20">
-      {/* Header */}
       <div className="border-b border-white/8 bg-black/50 backdrop-blur-xl sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -162,7 +162,7 @@ export default function AdminPanel() {
           </div>
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-sm text-white/50">{user.emailAddresses[0]?.emailAddress}</span>
+            <span className="text-sm text-white/50">{user.email}</span>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-6 pb-0 flex gap-1">
@@ -177,7 +177,6 @@ export default function AdminPanel() {
 
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
 
-        {/* OVERVIEW */}
         {activeTab === "overview" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -192,9 +191,9 @@ export default function AdminPanel() {
                 <div className="space-y-3">
                   {[
                     { label: "API Server", status: "online", detail: "Express 5 + Node 24" },
-                    { label: "Database", status: "online", detail: "PostgreSQL + Drizzle ORM" },
+                    { label: "Database", status: "online", detail: "Supabase PostgreSQL" },
                     { label: "AI Provider", status: "online", detail: "Gemini 2.0 Flash" },
-                    { label: "Auth System", status: "online", detail: "Clerk (Replit-managed)" },
+                    { label: "Auth System", status: "online", detail: "Supabase Auth" },
                     { label: "Cache Layer", status: "online", detail: "24h TTL in PostgreSQL" },
                   ].map(s => (
                     <div key={s.label} className="flex items-center justify-between py-2 border-b border-white/5">
@@ -233,27 +232,9 @@ export default function AdminPanel() {
                 </div>
               </Section>
             </div>
-
-            <Section title="Platform Metrics" icon={TrendingUp}>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: "Top City", value: "Mumbai", sub: "Most analyzed" },
-                  { label: "Cache Hit Rate", value: "73%", sub: "AI quota saved" },
-                  { label: "Avg Response", value: "1.2s", sub: "API response time" },
-                  { label: "Error Rate", value: "0.3%", sub: "Last 24 hours" },
-                ].map(m => (
-                  <div key={m.label} className="bg-white/3 rounded-xl p-4 text-center">
-                    <div className="text-2xl font-black text-violet-400">{m.value}</div>
-                    <div className="text-sm text-white font-medium mt-1">{m.label}</div>
-                    <div className="text-xs text-white/30">{m.sub}</div>
-                  </div>
-                ))}
-              </div>
-            </Section>
           </motion.div>
         )}
 
-        {/* CACHE */}
         {activeTab === "cache" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <Section title="AI Response Cache" icon={Database}>
@@ -270,7 +251,6 @@ export default function AdminPanel() {
                   <span className="text-sm text-white/40">{cacheEntries.length} entries</span>
                 )}
               </div>
-
               {cacheEntries.length === 0 ? (
                 <div className="text-center py-10 text-white/30">
                   <Database className="w-10 h-10 mx-auto mb-3 opacity-20" />
@@ -303,29 +283,13 @@ export default function AdminPanel() {
                 </div>
               )}
             </Section>
-
-            <Section title="Cache Configuration" icon={Settings}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { label: "Current TTL", value: "24 hours", icon: Clock, color: "green" },
-                  { label: "Cache Strategy", value: "PostgreSQL", icon: Database, color: "blue" },
-                  { label: "Invalidation", value: "Manual / TTL", icon: RefreshCw, color: "amber" },
-                ].map(c => (
-                  <div key={c.label} className={`p-4 rounded-xl border ${c.color === "green" ? "border-green-500/20 bg-green-500/5" : c.color === "blue" ? "border-blue-500/20 bg-blue-500/5" : "border-amber-500/20 bg-amber-500/5"}`}>
-                    <div className="text-xs text-white/40 mb-1">{c.label}</div>
-                    <div className="font-bold text-white">{c.value}</div>
-                  </div>
-                ))}
-              </div>
-            </Section>
           </motion.div>
         )}
 
-        {/* FEATURE FLAGS */}
         {activeTab === "features" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <Section title="Feature Flags" icon={Zap}>
-              <p className="text-sm text-white/40 mb-5">Toggle features on/off across the platform. Changes take effect immediately.</p>
+              <p className="text-sm text-white/40 mb-5">Toggle features on/off across the platform.</p>
               <div className="space-y-3">
                 {featureFlags.map(f => (
                   <div key={f.name} className="flex items-center justify-between py-4 border-b border-white/5">
@@ -345,7 +309,6 @@ export default function AdminPanel() {
           </motion.div>
         )}
 
-        {/* SETTINGS */}
         {activeTab === "settings" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <Section title="Platform Settings" icon={Settings}>
@@ -362,16 +325,15 @@ export default function AdminPanel() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-white/20 mt-4">Settings are managed via environment variables and database. Contact system admin to change values.</p>
             </Section>
 
             <Section title="API Keys Status" icon={Lock}>
               <div className="space-y-3">
                 {[
-                  { name: "GEMINI_API_KEY", label: "Google Gemini API", status: "configured", used: "AI intelligence generation" },
-                  { name: "DATABASE_URL", label: "PostgreSQL Database", status: "configured", used: "Data persistence, caching" },
-                  { name: "CLERK_SECRET_KEY", label: "Clerk Auth (Secret)", status: "configured", used: "User authentication" },
-                  { name: "VITE_CLERK_PUBLISHABLE_KEY", label: "Clerk Auth (Public)", status: "configured", used: "Frontend auth" },
+                  { name: "GEMINI_API_KEY", label: "Google Gemini API", used: "AI intelligence generation" },
+                  { name: "DATABASE_URL", label: "Supabase PostgreSQL", used: "Data persistence, caching" },
+                  { name: "SUPABASE_SERVICE_ROLE_KEY", label: "Supabase Service Role", used: "Server-side auth verification" },
+                  { name: "SUPABASE_ANON_KEY", label: "Supabase Anon Key", used: "Frontend auth" },
                 ].map(k => (
                   <div key={k.name} className="flex items-center gap-3 py-3 border-b border-white/5">
                     <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
@@ -387,17 +349,16 @@ export default function AdminPanel() {
           </motion.div>
         )}
 
-        {/* USERS */}
         {activeTab === "users" && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <Section title="User Management" icon={Users}>
               <div className="text-center py-10 text-white/30">
                 <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
                 <p className="font-medium text-white/50">User Database</p>
-                <p className="text-sm mt-1">Users are managed via Clerk Auth. Sign-ups appear in your Clerk dashboard.</p>
+                <p className="text-sm mt-1">Users are managed via Supabase Auth. Sign-ups appear in your Supabase dashboard under Authentication → Users.</p>
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
                   {[
-                    { label: "Total Users", value: "—", icon: Users, note: "Via Clerk Auth" },
+                    { label: "Total Users", value: "—", icon: Users, note: "Via Supabase Auth" },
                     { label: "Active Today", value: "—", icon: Activity, note: "From session logs" },
                     { label: "Pro Users", value: "0", icon: Star, note: "Paid subscribers" },
                   ].map(u => (

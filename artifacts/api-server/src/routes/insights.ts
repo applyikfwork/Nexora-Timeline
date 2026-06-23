@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, searchLogsTable, aiRequestLogsTable, chatMessagesTable, savedPlacesTable } from "@workspace/db";
-import { count, sql } from "drizzle-orm";
+import { db, chatMessagesTable, savedPlacesTable } from "@workspace/db";
+import { count } from "drizzle-orm";
 import { generateJson, generateText } from "../lib/gemini";
 import { getCached, setCached } from "../lib/aiCache";
 import {
@@ -83,7 +83,6 @@ Return JSON:
   };
 
   await setCached(cacheKey, "predictions", placeId, result, 15);
-  await db.insert(aiRequestLogsTable).values({ requestType: "predictions", placeId, placeName: getPlaceName(placeId), responseTimeMs: 0, cached: "false" }).catch(() => {});
   res.json(result);
 });
 

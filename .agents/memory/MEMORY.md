@@ -1,2 +1,2 @@
-- [Clerk setup quirks](clerk-setup.md) — key setup rules for Clerk auth in this Vite+Tailwind v4 project
+- [Supabase auth migration](supabase-auth.md) — Clerk removed, Supabase Auth + custom AuthProvider now used; key env vars and gotchas
 - [Cache TTL strategy](cache-ttl.md) — factual AI routes = 1440min (24h), time-sensitive routes stay low
