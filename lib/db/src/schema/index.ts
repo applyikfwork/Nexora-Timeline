@@ -2,3 +2,6 @@ export * from "./savedPlaces";
 export * from "./chatMessages";
 export * from "./analytics";
 export * from "./aiCache";
+export * from "./savedInsights";
+export * from "./savedJourneys";
+export * from "./savedMaps";

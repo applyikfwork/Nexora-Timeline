@@ -1,7 +1,9 @@
 import { Router, type IRouter } from "express";
+import { createHash } from "crypto";
 import { db, chatMessagesTable, aiRequestLogsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
-import { generateText } from "../lib/gemini";
+import { generateText, RateLimitError } from "../lib/gemini";
+import { getCached, setCached } from "../lib/aiCache";
 import { SendChatMessageBody, GetChatHistoryQueryParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -17,6 +19,18 @@ const PLACE_NAMES: Record<string, string> = {
   "singapore-sg": "Singapore",
 };
 
+/* Cache key: hash of normalized message + placeContext */
+function makeCacheKey(message: string, placeContext: string | null | undefined): string {
+  const normalized = `${message.trim().toLowerCase()}|${placeContext ?? ""}`;
+  return createHash("sha256").update(normalized).digest("hex").slice(0, 40);
+}
+
+/* Skip caching for time-sensitive queries */
+function isCacheable(message: string): boolean {
+  const lower = message.toLowerCase();
+  return !["right now", "today", "this minute", "currently", "at this moment", "live"].some(w => lower.includes(w));
+}
+
 router.post("/chat/message", async (req, res): Promise<void> => {
   const parsed = SendChatMessageBody.safeParse(req.body);
   if (!parsed.success) {
@@ -25,43 +39,78 @@ router.post("/chat/message", async (req, res): Promise<void> => {
   }
 
   const { message, sessionId, placeContext, placeId } = parsed.data;
+  const startMs = Date.now();
 
-  await db.insert(chatMessagesTable).values({
+  /* 1. Log the user message (non-blocking) */
+  db.insert(chatMessagesTable).values({
     sessionId,
     role: "user",
     content: message,
     placeContext: placeContext ?? null,
   }).catch(() => {});
 
-  const placeName = placeId ? (PLACE_NAMES[placeId] ?? placeId) : placeContext ?? "the world";
+  /* 2. Check AI cache first */
+  const key = makeCacheKey(message, placeContext);
+  const cacheable = isCacheable(message);
+  let aiReply: string | null = null;
+  let fromCache = false;
 
-  const systemContext = `You are Nexora AI, an intelligent location intelligence assistant. You have deep knowledge about cities, neighborhoods, travel, local culture, traffic patterns, weather trends, and urban life. ${placeContext ? `The user is currently exploring ${placeContext}.` : ""} Be concise, insightful, and specific. Answer in 2-4 sentences. Avoid generic responses.`;
+  if (cacheable) {
+    const cached = await getCached<string>(key);
+    if (cached) {
+      aiReply = cached;
+      fromCache = true;
+    }
+  }
 
-  const prompt = `${systemContext}\n\nUser question: ${message}`;
+  /* 3. If no cache hit, call Gemini */
+  if (!aiReply) {
+    const placeName = placeId ? (PLACE_NAMES[placeId] ?? placeId) : placeContext ?? "the world";
+    const systemContext = `You are Nexora AI, an intelligent location intelligence assistant. You have deep knowledge about cities, neighborhoods, travel, local culture, traffic patterns, weather trends, and urban life. ${placeContext ? `The user is currently exploring ${placeContext}.` : ""} Be concise, insightful, and specific. Answer in 2-4 sentences. Avoid generic responses.`;
 
-  const aiReply = await generateText(prompt).catch(() =>
-    `Based on current data and historical patterns for ${placeName}, I can provide insights about crowd levels, traffic patterns, and local activity. The area is typically ${new Date().getHours() > 17 ? "busy with evening commuters and diners" : "moderately active with daytime visitors and workers"}. Would you like specific predictions or historical comparisons?`
-  );
+    try {
+      aiReply = await generateText(`${systemContext}\n\nUser question: ${message}`);
+      /* Store in cache with 4-hour TTL */
+      if (cacheable) {
+        await setCached(key, "chat", placeId ?? null, aiReply, 240);
+      }
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        res.status(429).json({
+          error: "AI quota reached",
+          retryAfter: err.retryAfter,
+          message: `Gemini free tier quota exceeded. Please wait ${err.retryAfter} seconds and try again.`,
+        });
+        return;
+      }
+      /* Non-rate-limit error — use a time-based fallback */
+      const hour = new Date().getHours();
+      aiReply = `${placeName} is currently ${hour >= 17 || hour < 6 ? "busy with evening activity and nightlife" : "moderately active with daytime visitors and workers"}. For detailed analysis, try again in a moment.`;
+    }
+  }
 
+  /* 4. Save AI reply to chat history */
   const [savedReply] = await db.insert(chatMessagesTable).values({
     sessionId,
     role: "assistant",
-    content: typeof aiReply === "string" ? aiReply.trim() : aiReply,
+    content: (aiReply ?? "").trim(),
     placeContext: placeContext ?? null,
   }).returning();
 
-  await db.insert(aiRequestLogsTable).values({
+  /* 5. Log the request (non-blocking) */
+  db.insert(aiRequestLogsTable).values({
     requestType: "chat",
     placeId: placeId ?? null,
     placeName: placeId ? PLACE_NAMES[placeId] : null,
-    responseTimeMs: 0,
-    cached: "false",
+    responseTimeMs: Date.now() - startMs,
+    cached: fromCache ? "true" : "false",
   }).catch(() => {});
 
   res.json({
     reply: savedReply.content,
     sessionId,
     messageId: savedReply.id,
+    cached: fromCache,
     relatedPlaces: placeId ? [{ name: PLACE_NAMES[placeId] ?? placeId, placeId }] : [],
   });
 });
@@ -74,7 +123,6 @@ router.get("/chat/history", async (req, res): Promise<void> => {
   }
 
   const { sessionId, limit = 20 } = query.data;
-
   const messages = await db
     .select()
     .from(chatMessagesTable)

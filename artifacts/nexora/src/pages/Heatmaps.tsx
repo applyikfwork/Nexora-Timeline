@@ -6,23 +6,13 @@ import {
   Clock, TrendingUp, Bookmark, ChevronDown, ChevronUp,
   RefreshCw, Brain, Heart, Zap, Globe2, ArrowRight, Send, X
 } from "lucide-react";
+import { useAppContext } from "@/lib/store";
+import { askAI as sharedAskAI, getSessionId } from "@/lib/ai";
 
-/* ─── AI helper ─── */
+/* ─── AI helper (shared lib — handles caching + rate limits) ─── */
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const SESSION = `hm-${Math.random().toString(36).slice(2)}`;
 async function askAI(prompt: string): Promise<string> {
-  try {
-    const r = await fetch(`${BASE}/api/chat/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, sessionId: SESSION, placeContext: "heatmap analysis" }),
-    });
-    if (!r.ok) throw new Error();
-    const d = await r.json();
-    return d.reply ?? "Analysis unavailable.";
-  } catch {
-    return "AI is warming up — please try again in a moment.";
-  }
+  return sharedAskAI(prompt, "heatmap analysis");
 }
 
 /* ─── types ─── */
@@ -211,11 +201,12 @@ function GlassCard({ children, className = "" }: { children: React.ReactNode; cl
 
 /* ─── main ─── */
 export default function Heatmaps() {
+  const { activePlaceName, setActivePlaceName, sessionId } = useAppContext();
   /* location */
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(activePlaceName);
   const [searchResults, setSearchResults] = useState<{ id: string; name: string; country: string }[]>([]);
   const [searching, setSearching] = useState(false);
-  const [location, setLocation] = useState("");
+  const [location, setLocation] = useState(activePlaceName);
   const [showSearch, setShowSearch] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -248,9 +239,26 @@ export default function Heatmaps() {
   const [indiaStory, setIndiaStory] = useState<string | null>(null);
   const [loadingIndia, setLoadingIndia] = useState(false);
 
-  /* save */
+  /* save — DB-backed */
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>([]);
   const [showSaved, setShowSaved] = useState(false);
+
+  const reloadSavedMaps = useCallback(async () => {
+    try {
+      const r = await fetch(`${BASE}/api/saved-maps?sessionId=${encodeURIComponent(sessionId)}`);
+      if (r.ok) {
+        const data = await r.json() as { id: number; location: string; layersJson: string; timeOfDay: string; savedAt: string }[];
+        setSavedMaps(data.map(d => ({
+          id: String(d.id), location: d.location,
+          layers: JSON.parse(d.layersJson || "[]") as string[],
+          time: d.timeOfDay,
+          savedAt: new Date(d.savedAt).toLocaleDateString(),
+        })));
+      }
+    } catch {}
+  }, [sessionId]);
+
+  useEffect(() => { reloadSavedMaps(); }, [reloadSavedMaps]);
 
   /* ─── search ─── */
   const handleSearch = (v: string) => {
@@ -268,6 +276,7 @@ export default function Heatmaps() {
 
   const selectLocation = (name: string) => {
     setLocation(name); setQuery(name);
+    setActivePlaceName(name);
     setShowSearch(false); setSearchResults([]);
     setAiExplanation(null); setHiddenZones(null);
     setRecommendation(null); setFutureZone(null);
@@ -319,14 +328,18 @@ export default function Heatmaps() {
     setLoadingIndia(false);
   };
 
-  const saveMap = () => {
+  const saveMap = async () => {
     if (!location) return;
-    const m: SavedMap = {
-      id: Math.random().toString(36).slice(2),
-      location, layers: activeLayers.map(l => l.label),
-      time: timeOfDay, savedAt: new Date().toLocaleDateString(),
-    };
-    setSavedMaps(prev => [m, ...prev]);
+    await fetch(`${BASE}/api/saved-maps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId, location,
+        layersJson: JSON.stringify(activeLayers.map(l => l.label)),
+        timeOfDay,
+      }),
+    }).catch(() => {});
+    await reloadSavedMaps();
   };
 
   /* ─── intensity legend ─── */

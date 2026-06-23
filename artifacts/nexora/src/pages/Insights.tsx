@@ -7,25 +7,16 @@ import {
   ArrowRight, RefreshCw, BarChart3, Star, Clock, CheckCircle2,
   Lightbulb, Shield, X, FileText
 } from "lucide-react";
+import { useAppContext } from "@/lib/store";
+import { askAI as sharedAskAI, askJSON as sharedAskJSON, getSessionId } from "@/lib/ai";
 
-/* ─── AI helper ─── */
+/* ─── AI helpers (use shared lib for caching + rate limit handling) ─── */
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const SESSION = `ins-${Math.random().toString(36).slice(2)}`;
 async function askAI(prompt: string): Promise<string> {
-  try {
-    const r = await fetch(`${BASE}/api/chat/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, sessionId: SESSION, placeContext: "AI insights analysis" }),
-    });
-    if (!r.ok) throw new Error();
-    return (await r.json()).reply ?? "Analysis unavailable.";
-  } catch { return "AI is warming up — please try again in a moment."; }
+  return sharedAskAI(prompt, "AI insights analysis");
 }
 async function askJSON<T>(prompt: string, fallback: T): Promise<T> {
-  const txt = await askAI(`${prompt}\n\nRespond ONLY with valid JSON, no markdown or code blocks.`);
-  try { return JSON.parse(txt.replace(/```json?/g, "").replace(/```/g, "").trim()) as T; }
-  catch { return fallback; }
+  return sharedAskJSON(prompt, fallback, "AI insights analysis");
 }
 
 /* ─── types ─── */
@@ -33,7 +24,7 @@ interface RadarScore { label: string; value: number; icon: string; color: string
 interface Pattern { text: string; type: "positive" | "neutral" | "warning" }
 interface Opportunity { icon: string; label: string; detail: string }
 interface Risk { icon: string; label: string; level: "low" | "medium" | "high" }
-interface SavedInsight { id: string; location: string; score: number; summary: string; savedAt: string }
+interface SavedInsight { id: number; location: string; score: number; summary: string; savedAt: string | Date }
 interface CompareResult { winner: string; summary: string; scores: Record<string, [number, number]> }
 
 /* ─── animated neural network background ─── */
@@ -194,11 +185,12 @@ const DEFAULT_RADAR: RadarScore[] = [
 
 /* ─── main ─── */
 export default function Insights() {
+  const { activePlaceName, setActivePlaceName, sessionId } = useAppContext();
   /* search */
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(activePlaceName);
   const [searchResults, setSearchResults] = useState<{ id: string; name: string; country: string }[]>([]);
   const [searching, setSearching] = useState(false);
-  const [location, setLocation] = useState("");
+  const [location, setLocation] = useState(activePlaceName);
   const [showSearch, setShowSearch] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -265,9 +257,18 @@ export default function Insights() {
   const [indiaInsight, setIndiaInsight] = useState<string | null>(null);
   const [loadingIndia, setLoadingIndia] = useState(false);
 
-  /* saved */
+  /* saved — DB-backed */
   const [saved, setSaved] = useState<SavedInsight[]>([]);
   const [showSaved, setShowSaved] = useState(false);
+
+  const reloadSaved = useCallback(async () => {
+    try {
+      const r = await fetch(`${BASE}/api/saved-insights?sessionId=${encodeURIComponent(sessionId)}`);
+      if (r.ok) setSaved((await r.json() as SavedInsight[]));
+    } catch {}
+  }, [sessionId]);
+
+  useEffect(() => { reloadSaved(); }, [reloadSaved]);
 
   const loc = location || "a city";
 
@@ -287,6 +288,7 @@ export default function Insights() {
 
   const selectLocation = (name: string) => {
     setLocation(name); setQuery(name);
+    setActivePlaceName(name);
     setShowSearch(false); setSearchResults([]);
     setOverview(null); setRadarScores(DEFAULT_RADAR); setSituation(null);
     setExplanation(null); setPatterns([]); setFuture(null);
@@ -430,14 +432,24 @@ export default function Insights() {
     setIndiaInsight(txt); setLoadingIndia(false);
   };
 
-  const saveInsight = () => {
+  const saveInsight = async () => {
     if (!location || !overview) return;
-    setSaved(prev => [{
-      id: Math.random().toString(36).slice(2),
-      location, score: overview.score,
-      summary: overview.summary.slice(0, 80) + "…",
-      savedAt: new Date().toLocaleDateString(),
-    }, ...prev]);
+    await fetch(`${BASE}/api/saved-insights`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId, location,
+        score: overview.score,
+        summary: overview.summary.slice(0, 200),
+        radarJson: JSON.stringify(radarScores),
+      }),
+    }).catch(() => {});
+    await reloadSaved();
+  };
+
+  const deleteInsight = async (id: number) => {
+    await fetch(`${BASE}/api/saved-insights/${id}`, { method: "DELETE" }).catch(() => {});
+    setSaved(prev => prev.filter(s => s.id !== id));
   };
 
   const riskColor = (level: string) =>

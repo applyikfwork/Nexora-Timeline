@@ -6,24 +6,14 @@ import {
   Building2, Users, Activity, ArrowRight, Star, MapPin, Send,
   RefreshCw, Play, ChevronDown, ChevronUp, Heart
 } from "lucide-react";
+import { useAppContext } from "@/lib/store";
+import { askAI as sharedAskAI, getSessionId } from "@/lib/ai";
 
 /* ─── helpers ─── */
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-const SESSION = `tm-${Math.random().toString(36).slice(2)}`;
 
 async function askAI(prompt: string): Promise<string> {
-  try {
-    const r = await fetch(`${BASE}/api/chat/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: prompt, sessionId: SESSION, placeContext: "time travel" }),
-    });
-    if (!r.ok) throw new Error("api error");
-    const d = await r.json();
-    return d.reply ?? "No response generated.";
-  } catch {
-    return "AI is warming up — please try again in a moment.";
-  }
+  return sharedAskAI(prompt, "time travel");
 }
 
 /* ─── types ─── */
@@ -70,11 +60,12 @@ function GlassCard({ children, className = "" }: { children: React.ReactNode; cl
 
 /* ─── main component ─── */
 export default function TimeMachine() {
+  const { activePlaceName, setActivePlaceName, sessionId } = useAppContext();
   /* search */
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(activePlaceName);
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ id: string; name: string; country: string }[]>([]);
-  const [location, setLocation] = useState("");
+  const [location, setLocation] = useState(activePlaceName);
   const [showSearch, setShowSearch] = useState(false);
 
   /* timeline */
@@ -113,9 +104,27 @@ export default function TimeMachine() {
   const [indiaStory, setIndiaStory] = useState<string | null>(null);
   const [loadingIndia, setLoadingIndia] = useState(false);
 
-  /* saved journeys */
+  /* saved journeys — DB-backed */
   const [savedJourneys, setSavedJourneys] = useState<Journey[]>([]);
   const [showSaved, setShowSaved] = useState(false);
+
+  const reloadJourneys = useCallback(async () => {
+    try {
+      const r = await fetch(`${BASE}/api/saved-journeys?sessionId=${encodeURIComponent(sessionId)}`);
+      if (r.ok) {
+        const data = await r.json() as { id: number; location: string; fromYear: number; notesJson: string | null; savedAt: string }[];
+        setSavedJourneys(data.map(d => ({
+          id: String(d.id), location: d.location, year: d.fromYear,
+          title: `${d.location} in ${d.fromYear}`,
+          note: d.notesJson ? (JSON.parse(d.notesJson) as { note?: string }).note ?? "" : "",
+          savedAt: new Date(d.savedAt).toLocaleDateString(),
+        })));
+      }
+    } catch {}
+  }, [sessionId]);
+
+  const { useEffect } = React;
+  useEffect(() => { reloadJourneys(); }, [reloadJourneys]);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -136,6 +145,7 @@ export default function TimeMachine() {
   const selectLocation = (name: string) => {
     setLocation(name);
     setQuery(name);
+    setActivePlaceName(name);
     setShowSearch(false);
     setSearchResults([]);
     setPastStory(null); setFutureData(null); setEvolutionScore(null);
@@ -247,16 +257,19 @@ export default function TimeMachine() {
     setLoadingIndia(false);
   };
 
-  const saveJourney = () => {
+  const saveJourney = async () => {
     if (!location) return;
-    const j: Journey = {
-      id: Math.random().toString(36).slice(2),
-      location, year,
-      title: `${location} in ${year}`,
-      note: pastStory?.slice(0, 80) + "…" || "Explore this era",
-      savedAt: new Date().toLocaleDateString(),
-    };
-    setSavedJourneys(prev => [j, ...prev]);
+    await fetch(`${BASE}/api/saved-journeys`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId, location,
+        fromYear: year, toYear: year,
+        view: "past",
+        notesJson: JSON.stringify({ note: pastStory?.slice(0, 120) ?? "Explore this era" }),
+      }),
+    }).catch(() => {});
+    await reloadJourneys();
   };
 
   const yc = getYearColor(year);
