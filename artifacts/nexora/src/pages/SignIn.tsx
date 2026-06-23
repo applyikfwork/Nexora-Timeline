@@ -55,7 +55,7 @@ export default function SignInPage() {
 
       if (err) {
         // Log the raw error so you can inspect it in the browser console (F12 → Console)
-        console.error("[Nexora] auth error:", err, "| message:", err.message, "| code:", (err as Record<string, unknown>).code, "| status:", err.status);
+        console.error("[Nexora] auth error:", err, "| message:", err.message, "| code:", (err as unknown as Record<string, unknown>).code, "| status:", err.status);
 
         if (isUnconfirmedError(err)) {
           setNeedsConfirmation(true);

@@ -6,7 +6,8 @@ import {
   RefreshCw, CheckCircle, XCircle, Eye, EyeOff, TrendingUp, Globe2,
   BrainCircuit, Lock, AlertTriangle, Activity, Server, Clock,
   Bell, Key, ExternalLink, Loader2, Send, Terminal, Star,
-  ChevronDown, ChevronUp, Plus, Megaphone, PieChart,
+  ChevronDown, ChevronUp, Plus, Megaphone, PieChart, Copy, Cloud,
+  Rocket, Package, Info,
 } from "lucide-react";
 
 const ADMIN_EMAIL = "xyzapplywork@gmail.com";
@@ -186,11 +187,46 @@ function ApiKeysTab({ token }: { token: string }) {
 
   if (loading) return <div className="space-y-4">{[1, 2, 3, 4].map(i => <SkeletonRow key={i} />)}</div>;
 
+  const allRequired = keys.filter(k => k.required);
+  const missingRequired = allRequired.filter(k => !k.configured);
+  const allConfigured = missingRequired.length === 0;
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-      <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl text-sm text-blue-300">
-        Keys saved here are stored securely in your database and take priority over Replit Secrets. They are never exposed to users.
+      {/* Vercel deployment banner */}
+      <div className="p-5 bg-gradient-to-br from-violet-500/10 to-indigo-500/10 border border-violet-500/25 rounded-2xl">
+        <div className="flex items-start gap-3 mb-4">
+          <Rocket className="w-5 h-5 text-violet-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <div className="font-bold text-white">Vercel-Ready: Only 4 Supabase env vars needed</div>
+            <div className="text-sm text-white/50 mt-0.5">All other API keys (Gemini, Mapbox, OpenWeather, SerpAPI) are stored securely in your Supabase database. Set them below once — they load at runtime on any deployment.</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          {["SUPABASE_DATABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"].map(v => (
+            <div key={v} className="flex items-center gap-1.5 bg-black/40 border border-green-500/20 rounded-lg px-2.5 py-2">
+              <CheckCircle className="w-3 h-3 text-green-400 flex-shrink-0" />
+              <span className="font-mono text-xs text-green-300 truncate">{v}</span>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Missing keys warning */}
+      {!allConfigured && (
+        <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+          <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-amber-300">
+            <span className="font-semibold">Missing required keys: </span>
+            {missingRequired.map(k => k.label).join(", ")} — AI and map features won't work until these are saved.
+          </div>
+        </div>
+      )}
+      {allConfigured && (
+        <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/25 rounded-xl text-sm text-green-400">
+          <CheckCircle className="w-4 h-4" /> All required API keys configured — platform fully operational.
+        </div>
+      )}
       {keys.map(k => {
         const result = testResults[k.name];
         return (
@@ -575,6 +611,122 @@ function BroadcastTab({ token }: { token: string }) {
   );
 }
 
+// ── Deploy Tab ─────────────────────────────────────────────────────────────────
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+      className="flex items-center gap-1 text-xs text-white/30 hover:text-white/70 transition-colors"
+    >
+      {copied ? <CheckCircle className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+}
+
+function DeployTab() {
+  const vercelEnvVars = [
+    { var: "SUPABASE_DATABASE_URL", desc: "Supabase → Settings → Database → Connection string (URI mode)", note: "backend DB connection" },
+    { var: "SUPABASE_SERVICE_ROLE_KEY", desc: "Supabase → Settings → API → service_role key", note: "backend admin auth" },
+    { var: "VITE_SUPABASE_URL", desc: "Supabase → Settings → API → Project URL", note: "frontend Supabase client" },
+    { var: "VITE_SUPABASE_ANON_KEY", desc: "Supabase → Settings → API → anon public key", note: "frontend Supabase client" },
+  ];
+
+  const steps = [
+    {
+      num: "1", title: "Set API Keys in Admin Panel",
+      body: "Go to Admin Panel → API Keys tab. Paste your Gemini, Mapbox, OpenWeather, and SerpAPI keys. They are stored encrypted in your Supabase database — never in environment variables.",
+      icon: Key, color: "violet",
+    },
+    {
+      num: "2", title: "Deploy to Vercel",
+      body: "Import your GitHub repo in Vercel. Set only the 4 Supabase environment variables below. No Gemini, Mapbox, or other keys needed.",
+      icon: Cloud, color: "blue",
+    },
+    {
+      num: "3", title: "Done — Keys load from Database",
+      body: "On every API request, the server reads API keys from Supabase admin_settings table (5-min in-memory cache). Update keys any time in the Admin Panel — no redeployment needed.",
+      icon: Rocket, color: "green",
+    },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* How it works */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {steps.map(s => {
+          const Icon = s.icon;
+          const colors: Record<string, string> = {
+            violet: "border-violet-500/25 bg-violet-500/5 text-violet-400",
+            blue: "border-blue-500/25 bg-blue-500/5 text-blue-400",
+            green: "border-green-500/25 bg-green-500/5 text-green-400",
+          };
+          return (
+            <div key={s.num} className={`p-5 rounded-2xl border ${colors[s.color]}`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-7 h-7 rounded-full bg-black/40 flex items-center justify-center text-xs font-black text-white">{s.num}</div>
+                <Icon className="w-4 h-4" />
+              </div>
+              <div className="font-bold text-white text-sm mb-1.5">{s.title}</div>
+              <div className="text-xs text-white/50 leading-relaxed">{s.body}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Vercel env vars */}
+      <Section title="Vercel Environment Variables (only these 4)" icon={Cloud}>
+        <p className="text-sm text-white/40 mb-4">Copy these variable names exactly into your Vercel project → Settings → Environment Variables.</p>
+        <div className="space-y-3">
+          {vercelEnvVars.map(e => (
+            <div key={e.var} className="bg-black/50 border border-white/8 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm text-violet-300 font-bold">{e.var}</span>
+                  <span className="text-xs px-2 py-0.5 bg-green-500/15 text-green-400 border border-green-500/20 rounded-full">Required</span>
+                </div>
+                <CopyBtn text={e.var} />
+              </div>
+              <div className="text-xs text-white/40">{e.desc}</div>
+              <div className="text-xs text-white/20 mt-0.5 italic">{e.note}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-300">
+              <span className="font-semibold">Do NOT add</span> GEMINI_API_KEY, MAPBOX_ACCESS_TOKEN, OPENWEATHER_API_KEY, or SERPAPI_KEY to Vercel. Those are managed here in the Admin Panel and stored in Supabase.
+            </div>
+          </div>
+        </div>
+      </Section>
+
+      {/* Architecture explanation */}
+      <Section title="How API Keys Work" icon={Package}>
+        <div className="space-y-3 text-sm text-white/60">
+          <div className="flex items-start gap-3 p-3 bg-white/3 rounded-xl">
+            <div className="w-6 h-6 rounded-full bg-violet-500/20 text-violet-400 text-xs flex items-center justify-center font-bold flex-shrink-0">1</div>
+            <div><span className="text-white font-medium">Admin Panel → Save Key</span> — You paste a key and click Save. It's stored in the <code className="text-violet-300 text-xs bg-violet-500/10 px-1 py-0.5 rounded">admin_settings</code> table in your Supabase PostgreSQL database under the key <code className="text-violet-300 text-xs bg-violet-500/10 px-1 py-0.5 rounded">api_key_gemini</code>, etc.</div>
+          </div>
+          <div className="flex items-start gap-3 p-3 bg-white/3 rounded-xl">
+            <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 text-xs flex items-center justify-center font-bold flex-shrink-0">2</div>
+            <div><span className="text-white font-medium">API Request comes in</span> — The Express server calls <code className="text-violet-300 text-xs bg-violet-500/10 px-1 py-0.5 rounded">getApiKey("gemini")</code>. It checks the DB first (5-minute in-memory cache), then falls back to env vars if not found in DB.</div>
+          </div>
+          <div className="flex items-start gap-3 p-3 bg-white/3 rounded-xl">
+            <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-400 text-xs flex items-center justify-center font-bold flex-shrink-0">3</div>
+            <div><span className="text-white font-medium">Frontend Mapbox token</span> — The map loads by calling <code className="text-violet-300 text-xs bg-violet-500/10 px-1 py-0.5 rounded">/api/config/public</code> which reads the Mapbox key from the DB. No VITE_ env var needed.</div>
+          </div>
+          <div className="flex items-start gap-3 p-3 bg-white/3 rounded-xl">
+            <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 text-xs flex items-center justify-center font-bold flex-shrink-0">4</div>
+            <div><span className="text-white font-medium">Update without redeployment</span> — Change a key here and it takes effect within 5 minutes (cache TTL) on all running instances. No Vercel redeployment needed.</div>
+          </div>
+        </div>
+      </Section>
+    </motion.div>
+  );
+}
+
 // ── Settings Tab ──────────────────────────────────────────────────────────────
 function SettingsTab() {
   const items = [
@@ -587,6 +739,21 @@ function SettingsTab() {
     { key: "Database", value: "Supabase PostgreSQL", note: "Via SUPABASE_DATABASE_URL" },
     { key: "Session ID", value: "nexora_session_id", note: "localStorage key for anonymous users" },
   ];
+
+  const requiredVars = [
+    { var: "SUPABASE_DATABASE_URL", where: "Backend DB connection", scope: "server" },
+    { var: "SUPABASE_SERVICE_ROLE_KEY", where: "Backend admin auth (never expose)", scope: "server" },
+    { var: "VITE_SUPABASE_URL", where: "Frontend Supabase client", scope: "frontend" },
+    { var: "VITE_SUPABASE_ANON_KEY", where: "Frontend Supabase client (safe to expose)", scope: "frontend" },
+  ];
+
+  const dbManagedKeys = [
+    { var: "GEMINI_API_KEY", label: "Google Gemini", where: "Admin Panel → API Keys" },
+    { var: "MAPBOX_ACCESS_TOKEN", label: "Mapbox", where: "Admin Panel → API Keys" },
+    { var: "OPENWEATHER_API_KEY", label: "OpenWeatherMap", where: "Admin Panel → API Keys" },
+    { var: "SERPAPI_KEY", label: "SerpAPI", where: "Admin Panel → API Keys" },
+  ];
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <Section title="Platform Configuration" icon={Settings}>
@@ -599,23 +766,39 @@ function SettingsTab() {
           ))}
         </div>
       </Section>
-      <Section title="Environment Variables Required" icon={Lock}>
-        <div className="space-y-1">
-          {[
-            { var: "SUPABASE_URL", where: "Backend", required: true },
-            { var: "SUPABASE_SERVICE_ROLE_KEY", where: "Backend only", required: true },
-            { var: "SUPABASE_ANON_KEY", where: "Backend", required: true },
-            { var: "SUPABASE_DATABASE_URL", where: "Backend DB", required: true },
-            { var: "VITE_SUPABASE_URL", where: "Frontend (Vite)", required: true },
-            { var: "VITE_SUPABASE_ANON_KEY", where: "Frontend (Vite)", required: true },
-            { var: "GEMINI_API_KEY", where: "Can also set in API Keys tab", required: false },
-            { var: "MAPBOX_ACCESS_TOKEN", where: "Can also set in API Keys tab", required: false },
-          ].map(e => (
+
+      <Section title="Required Environment Variables (Vercel / any host)" icon={Lock}>
+        <p className="text-sm text-white/40 mb-4">Only these 4 variables need to be set in your deployment environment. Everything else is managed through the Admin Panel.</p>
+        <div className="space-y-2">
+          {requiredVars.map(e => (
             <div key={e.var} className="flex items-center justify-between py-3 border-b border-white/5">
-              <div className="font-mono text-sm text-violet-400">{e.var}</div>
+              <div>
+                <div className="font-mono text-sm text-violet-400">{e.var}</div>
+                <div className="text-xs text-white/30 mt-0.5">{e.where}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2 py-0.5 bg-green-500/10 text-green-400 rounded-full border border-green-500/20">
+                  {e.scope === "server" ? "Server-side" : "Frontend"}
+                </span>
+                <span className="text-xs px-2 py-0.5 bg-red-500/10 text-red-400 rounded-full border border-red-500/20">Required</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="DB-Managed Keys (do NOT set these in Vercel)" icon={Database}>
+        <p className="text-sm text-white/40 mb-4">These are stored in Supabase and managed via the API Keys tab. Do not add them to Vercel env vars.</p>
+        <div className="space-y-2">
+          {dbManagedKeys.map(e => (
+            <div key={e.var} className="flex items-center justify-between py-3 border-b border-white/5">
+              <div>
+                <div className="font-mono text-sm text-white/50 line-through">{e.var}</div>
+                <div className="text-xs text-white/30 mt-0.5">{e.label}</div>
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-white/30">{e.where}</span>
-                {e.required && <span className="text-xs px-2 py-0.5 bg-red-500/10 text-red-400 rounded-full border border-red-500/20">Required</span>}
+                <span className="text-xs px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded-full border border-violet-500/20">DB-managed</span>
               </div>
             </div>
           ))}
@@ -636,6 +819,7 @@ export default function AdminPanel() {
   const TABS = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "api-keys", label: "API Keys", icon: Key },
+    { id: "deploy", label: "Deploy", icon: Rocket },
     { id: "usage", label: "AI Usage", icon: Activity },
     { id: "cache", label: "Cache", icon: Database },
     { id: "users", label: "Users", icon: Users },
@@ -696,6 +880,7 @@ export default function AdminPanel() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {activeTab === "overview" && <OverviewTab token={token} />}
         {activeTab === "api-keys" && <ApiKeysTab token={token} />}
+        {activeTab === "deploy" && <DeployTab />}
         {activeTab === "usage" && <UsageTab token={token} />}
         {activeTab === "cache" && <CacheTab token={token} />}
         {activeTab === "users" && <UsersTab token={token} />}
