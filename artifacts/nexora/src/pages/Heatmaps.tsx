@@ -208,6 +208,14 @@ export default function Heatmaps() {
   const [searching, setSearching] = useState(false);
   const [location, setLocation] = useState(activePlaceName);
   const [showSearch, setShowSearch] = useState(false);
+
+  /* Sync when global location changes */
+  useEffect(() => {
+    if (activePlaceName && !location) {
+      setQuery(activePlaceName);
+      setLocation(activePlaceName);
+    }
+  }, [activePlaceName]); // eslint-disable-line react-hooks/exhaustive-deps
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
 

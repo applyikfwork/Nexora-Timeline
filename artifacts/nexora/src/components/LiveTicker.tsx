@@ -16,7 +16,7 @@ const TICKER_ITEMS = [
   { city: "Sydney", pulse: 71, note: "Easing — Morning" },
 ];
 
-export function LiveTicker() {
+export function LiveTicker({ className }: { className?: string }) {
   const [items, setItems] = useState(TICKER_ITEMS);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function LiveTicker() {
   const doubled = [...items, ...items];
 
   return (
-    <div className="bg-card/80 border-b border-white/5 backdrop-blur-md overflow-hidden h-8 flex items-center">
+    <div className={`overflow-hidden h-8 flex items-center ${className ?? ""}`}>
       <div className="flex-shrink-0 flex items-center gap-1.5 px-3 border-r border-white/10 h-full bg-primary/10">
         <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
         <Radio className="w-3 h-3 text-primary" />

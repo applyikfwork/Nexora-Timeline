@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAppContext } from "@/lib/store";
 import {
   TrendingUp, TrendingDown, Minus, BarChart3, MapPin, Loader2,
   RefreshCw, Bot, X, Send, Star, Trash2, ArrowUp, ArrowDown,
@@ -80,8 +81,13 @@ function AnimatedScore({ target, color, size = "text-5xl" }: { target: number; c
 
 // ── Component ───────────────────────────────────────────────────────────────
 export default function CityPortfolio() {
+  const { activePlaceName } = useAppContext();
   const [searchInput, setSearchInput] = useState("");
   const [currentCity, setCurrentCity] = useState("");
+
+  useEffect(() => {
+    if (activePlaceName && !searchInput) setSearchInput(activePlaceName);
+  }, [activePlaceName]); // eslint-disable-line react-hooks/exhaustive-deps
   const [profile, setProfile] = useState<CityProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "economy" | "lifestyle" | "future">("overview");

@@ -68,6 +68,14 @@ export default function TimeMachine() {
   const [location, setLocation] = useState(activePlaceName);
   const [showSearch, setShowSearch] = useState(false);
 
+  /* Sync when global location changes */
+  useEffect(() => {
+    if (activePlaceName && !location) {
+      setQuery(activePlaceName);
+      setLocation(activePlaceName);
+    }
+  }, [activePlaceName]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* timeline */
   const [year, setYear] = useState(1950);
   const [compareYear, setCompareYear] = useState(2024);

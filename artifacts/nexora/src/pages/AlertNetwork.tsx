@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLocation as useGlobalLocation } from "@/lib/locationContext";
 import {
   GraduationCap, BadgeDollarSign, CloudRain, TrafficCone, Landmark,
   Zap, Activity, Search, RefreshCw, Plus, Trash2, X, ChevronDown,
@@ -280,11 +281,20 @@ export default function AlertNetwork() {
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
   const api = (path: string) => `${BASE}/api${path}`;
 
-  // Location
-  const [country] = useState("India");
-  const [stateVal, setStateVal] = useState("Delhi");
-  const [city, setCity] = useState("Nangloi");
+  // Location — sourced from global LocationContext (no hardcoded defaults)
+  const { location: globalLoc } = useGlobalLocation();
+  const [country] = useState(globalLoc.country || "India");
+  const [stateVal, setStateVal] = useState(globalLoc.state || globalLoc.city || "Delhi");
+  const [city, setCity] = useState(globalLoc.city || "Delhi");
   const [area, setArea] = useState("");
+
+  // Sync when global location changes (user switches via LocationSwitcher)
+  useEffect(() => {
+    if (globalLoc.city) {
+      setCity(globalLoc.city);
+      setStateVal(globalLoc.state || globalLoc.city);
+    }
+  }, [globalLoc.city, globalLoc.state]);
   const [searchQ, setSearchQ] = useState("");
   const [locOpen, setLocOpen] = useState(false);
 

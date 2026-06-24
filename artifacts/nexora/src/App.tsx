@@ -3,9 +3,10 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AppProvider } from "@/lib/store";
+import { AppProvider, useAppContext } from "@/lib/store";
 import { Layout } from "@/components/layout/AppLayout";
 import { AuthProvider } from "@/lib/auth";
+import { LocationProvider, useLocation } from "@/lib/locationContext";
 
 import Home from "@/pages/Home";
 import MapDashboard from "@/pages/MapDashboard";
@@ -40,6 +41,20 @@ import NotFound from "@/pages/not-found";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 const queryClient = new QueryClient();
+
+/**
+ * Bridge: when LocationContext detects / user changes location,
+ * sync city name into AppContext.activePlaceName so all existing
+ * pages that read activePlaceName continue to work automatically.
+ */
+function LocationBridge() {
+  const { setActivePlaceName } = useAppContext();
+  const { location } = useLocation();
+  React.useEffect(() => {
+    if (location.city) setActivePlaceName(location.city);
+  }, [location.city, setActivePlaceName]);
+  return null;
+}
 
 function Router() {
   return (
@@ -84,14 +99,17 @@ function App() {
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
           <AppProvider>
-            <TooltipProvider>
-              <Switch>
-                <Route path="/sign-in" component={SignInPage} />
-                <Route path="/sign-up" component={SignUpPage} />
-                <Route component={Router} />
-              </Switch>
-              <Toaster />
-            </TooltipProvider>
+            <LocationProvider>
+              <LocationBridge />
+              <TooltipProvider>
+                <Switch>
+                  <Route path="/sign-in" component={SignInPage} />
+                  <Route path="/sign-up" component={SignUpPage} />
+                  <Route component={Router} />
+                </Switch>
+                <Toaster />
+              </TooltipProvider>
+            </LocationProvider>
           </AppProvider>
         </QueryClientProvider>
       </AuthProvider>

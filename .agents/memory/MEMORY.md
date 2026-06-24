@@ -1,2 +1,3 @@
 - [Supabase auth migration](supabase-auth.md) — Clerk removed, Supabase Auth + custom AuthProvider now used; key env vars and gotchas
 - [Cache TTL strategy](cache-ttl.md) — factual AI routes = 1440min (24h), time-sensitive routes stay low
+- [Location system architecture](location-system.md) — Phase 1–5 global location context; LocationBridge pattern to sync with AppContext; no personal/neighborhood data ever stored

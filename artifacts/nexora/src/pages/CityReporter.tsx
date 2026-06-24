@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAppContext } from "@/lib/store";
 import {
   Search, Bot, Send, X, Newspaper, Loader2, RefreshCw,
   TrendingUp, Zap, MapPin, Radio, Eye, Clock, ArrowUp,
@@ -65,8 +66,13 @@ function trendIcon(trend: string) {
 
 // ── Component ──────────────────────────────────────────────────────────────
 export default function CityReporter() {
+  const { activePlaceName } = useAppContext();
   const [searchInput, setSearchInput] = useState("");
   const [currentCity, setCurrentCity] = useState("");
+
+  useEffect(() => {
+    if (activePlaceName && !searchInput) setSearchInput(activePlaceName);
+  }, [activePlaceName]); // eslint-disable-line react-hooks/exhaustive-deps
   const [report, setReport] = useState<CityReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [trending, setTrending] = useState<{ name: string; badge: string; desc?: string }[]>([]);

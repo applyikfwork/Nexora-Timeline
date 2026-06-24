@@ -196,6 +196,14 @@ export default function Insights() {
   const [searchResults, setSearchResults] = useState<{ id: string; name: string; country: string }[]>([]);
   const [searching, setSearching] = useState(false);
   const [location, setLocation] = useState(activePlaceName);
+
+  /* Sync when global location changes (from LocationContext bridge) */
+  useEffect(() => {
+    if (activePlaceName && !location) {
+      setQuery(activePlaceName);
+      setLocation(activePlaceName);
+    }
+  }, [activePlaceName]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showSearch, setShowSearch] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);

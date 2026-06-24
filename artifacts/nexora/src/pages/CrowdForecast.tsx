@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAppContext } from "@/lib/store";
 import {
   Users, MapPin, Loader2, RefreshCw, Bot, X, Send,
   Minus, Clock, Star, BookmarkPlus, BookmarkCheck,
@@ -86,6 +87,7 @@ function CrowdBar({ level, color, animated = true, h = "h-2" }: { level: number;
 
 // ── Component ───────────────────────────────────────────────────────────────
 export default function CrowdForecast() {
+  const { activePlaceName } = useAppContext();
   const [searchInput, setSearchInput] = useState("");
   const [currentPlace, setCurrentPlace] = useState("");
   const [forecast, setForecast] = useState<CrowdData | null>(null);
@@ -109,6 +111,11 @@ export default function CrowdForecast() {
     { role: "ai", text: "👥 Crowd Forecast active! Search any market, temple, mall, street, or city — I'll predict crowd levels, best visit times, and why it's busy. Ask me anything!" },
   ]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  /* Pre-fill search with global city when page loads and nothing typed */
+  useEffect(() => {
+    if (activePlaceName && !searchInput) setSearchInput(activePlaceName);
+  }, [activePlaceName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadSaved(); }, []);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMsgs]);
