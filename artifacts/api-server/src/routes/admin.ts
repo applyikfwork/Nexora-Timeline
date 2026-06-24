@@ -129,8 +129,11 @@ router.delete("/admin/cache/type/:type", requireAdmin, async (req, res): Promise
 const API_KEYS_META = [
   { name: "gemini", label: "Google Gemini", description: "Powers all AI intelligence features", required: true, getUrl: "https://aistudio.google.com/", envVar: "GEMINI_API_KEY" },
   { name: "mapbox", label: "Mapbox", description: "Interactive maps, geocoding, place search", required: true, getUrl: "https://account.mapbox.com/", envVar: "MAPBOX_ACCESS_TOKEN" },
-  { name: "openweather", label: "OpenWeatherMap", description: "Real weather data overlays", required: false, getUrl: "https://home.openweathermap.org/api_keys", envVar: "OPENWEATHER_API_KEY" },
+  { name: "openweather", label: "OpenWeatherMap", description: "Real weather data for alerts & overlays", required: false, getUrl: "https://home.openweathermap.org/api_keys", envVar: "OPENWEATHER_API_KEY" },
   { name: "serpapi", label: "SerpAPI", description: "Real business density & place data", required: false, getUrl: "https://serpapi.com/manage-api-key", envVar: "SERPAPI_KEY" },
+  { name: "gnews", label: "GNews", description: "Alert Network: Real news headlines (free tier: 100/day)", required: false, getUrl: "https://gnews.io/", envVar: "GNEWS_API_KEY" },
+  { name: "newsapi", label: "NewsAPI", description: "Alert Network: News headlines fallback", required: false, getUrl: "https://newsapi.org/register", envVar: "NEWSAPI_KEY" },
+  { name: "weatherapi", label: "WeatherAPI", description: "Alert Network: Weather alerts (alternative to OpenWeather)", required: false, getUrl: "https://www.weatherapi.com/signup.aspx", envVar: "WEATHERAPI_KEY" },
 ];
 
 router.get("/admin/api-keys", requireAdmin, async (_req, res): Promise<void> => {

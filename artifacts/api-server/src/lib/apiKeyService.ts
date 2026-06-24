@@ -7,6 +7,9 @@ const KEY_ENV_MAP: Record<string, string> = {
   mapbox: "MAPBOX_ACCESS_TOKEN",
   openweather: "OPENWEATHER_API_KEY",
   serpapi: "SERPAPI_KEY",
+  gnews: "GNEWS_API_KEY",
+  newsapi: "NEWSAPI_KEY",
+  weatherapi: "WEATHERAPI_KEY",
 };
 
 const cache = new Map<string, { value: string | null; expiresAt: number }>();

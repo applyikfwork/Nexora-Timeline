@@ -33,6 +33,7 @@ import CityComparison from "@/pages/CityComparison";
 import Leaderboard from "@/pages/Leaderboard";
 import BusinessIntelligence from "@/pages/BusinessIntelligence";
 import AdminPanel from "@/pages/AdminPanel";
+import AlertNetwork from "@/pages/AlertNetwork";
 import SignInPage from "@/pages/SignIn";
 import SignUpPage from "@/pages/SignUp";
 import NotFound from "@/pages/not-found";
@@ -70,6 +71,7 @@ function Router() {
         <Route path="/leaderboard" component={Leaderboard} />
         <Route path="/business" component={BusinessIntelligence} />
         <Route path="/admin" component={AdminPanel} />
+        <Route path="/alert-network" component={AlertNetwork} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

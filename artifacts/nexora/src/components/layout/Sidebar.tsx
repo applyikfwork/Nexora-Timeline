@@ -6,7 +6,7 @@ import {
   Radio, BookOpen, MapPin, Bell as BellIcon, CalendarDays,
   Newspaper, Award, Heart, ChevronLeft, ChevronRight, Zap,
   TrendingUp, Search, X, IndianRupee, ArrowLeftRight, Trophy,
-  Building2, Shield, LogIn, LogOut, User,
+  Building2, Shield, LogIn, LogOut, User, AlertTriangle,
 } from "lucide-react";
 import { useAppContext } from "@/lib/store";
 import { useSearchPlaces } from "@workspace/api-client-react";
@@ -48,6 +48,12 @@ const SECTIONS = [
       { href: "/events", label: "Event Radar", icon: BellIcon },
       { href: "/compatibility", label: "City Compatibility", icon: Heart },
       { href: "/reporter", label: "City Reporter", icon: Newspaper },
+    ],
+  },
+  {
+    label: "🚨 Alert Network",
+    links: [
+      { href: "/alert-network", label: "Alert Network", icon: AlertTriangle },
     ],
   },
   {

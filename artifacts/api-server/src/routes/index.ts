@@ -18,6 +18,7 @@ import cityRouter from "./city";
 import reporterRouter from "./reporter";
 import portfolioRouter from "./portfolio";
 import alertsRouter from "./alerts";
+import alertNetworkRouter from "./alertNetwork";
 import crowdRouter from "./crowd";
 import adminRouter from "./admin";
 
@@ -42,6 +43,7 @@ router.use(cityRouter);
 router.use(reporterRouter);
 router.use(portfolioRouter);
 router.use(alertsRouter);
+router.use(alertNetworkRouter);
 router.use(crowdRouter);
 router.use(adminRouter);
 
